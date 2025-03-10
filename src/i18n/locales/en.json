@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "AI Chat"
+  },
+  "chat": {
+    "thinking": "Thinking...",
+    "newChat": "New Chat",
+    "saveChat": "Save Chat",
+    "clearHistory": "Clear History",
+    "inputPlaceholder": "Type your message...",
+    "send": "Send",
+    "delete": "Delete",
+    "errorMessage": "Sorry, there was an error processing your request.",
+    "unexpectedFormat": "Sorry, I received an unexpected response format. Please try again.",
+    "invalidApiKey": "Your API key appears to be invalid. Please check your API key in Settings.",
+    "authError": "Authentication failed. Please verify your API key in Settings.",
+    "noApiKey": "Please set your Deepseek API key in the Settings tab before sending messages."
+  },
+  "timeline": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "pastWeek": "Past 7 Days",
+    "pastMonth": "Past 30 Days",
+    "older": "Older"
+  },
+  "tabs": {
+    "chat": "Chat",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "apiSettings": "API Settings",
+    "deepseekApiKey": "Deepseek API Key",
+    "enterApiKey": "Enter your API key",
+    "apiKeyOptions": "API Key Options",
+    "deleteApiKey": "Delete",
+    "editApiKey": "Edit",
+    "noApiKey": "No API key set",
+    "manageApiKey": "Manage API Key",
+    "apiKeyDescription": "Your API key is stored securely on your device and is used to communicate with the Deepseek AI service.",
+    "save": "Save",
+    "appearance": "Appearance",
+    "themeMode": "Theme Mode",
+    "themes": {
+      "auto": "Auto (System)",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "language": "Language Settings",
+    "preferredLanguage": "Preferred Language",
+    "languages": {
+      "english": "English",
+      "chinese": "Chinese"
+    },
+    "dangerZone": "Danger Zone",
+    "dangerZoneWarning": "Actions here cannot be undone",
+    "dataManagement": "Data Management",
+    "clear": "Clear",
+    "clearAllHistory": "Clear all chat history",
+    "confirmClear": "Clear All Chat History?",
+    "confirmClearMessage": "This will permanently delete all your chat history. This action cannot be undone."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  }
+}

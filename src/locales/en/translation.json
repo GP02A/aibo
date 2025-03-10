@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "title": "Settings",
+    "darkMode": "Dark Mode"
+  },
+  "tabs": {
+    "chat": "Chat",
+    "settings": "Settings"
+  }
+}

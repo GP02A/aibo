@@ -1,0 +1,64 @@
+{
+  "app": {
+    "title": "AI 聊天"
+  },
+  "chat": {
+    "newChat": "新对话",
+    "saveChat": "保存对话",
+    "clearHistory": "清除历史",
+    "inputPlaceholder": "输入消息...",
+    "send": "发送",
+    "delete": "删除",
+    "errorMessage": "抱歉，处理您的请求时出错。",
+    "unexpectedFormat": "抱歉，收到了意外的响应格式。请重试。",
+    "invalidApiKey": "您的 API 密钥似乎无效。请在设置中检查您的 API 密钥。",
+    "authError": "身份验证失败。请在设置中验证您的 API 密钥。",
+    "noApiKey": "请在设置选项卡中设置您的 Deepseek API 密钥，然后再发送消息。"
+  },
+  "timeline": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "pastWeek": "过去7天",
+    "pastMonth": "过去30天",
+    "older": "更早"
+  },
+  "tabs": {
+    "chat": "聊天",
+    "settings": "设置"
+  },
+  "settings": {
+    "title": "设置",
+    "apiSettings": "API 设置",
+    "deepseekApiKey": "Deepseek API 密钥",
+    "enterApiKey": "输入您的 API 密钥",
+    "apiKeyOptions": "API 密钥选项",
+    "deleteApiKey": "删除",
+    "editApiKey": "编辑",
+    "noApiKey": "未设置 API 密钥",
+    "manageApiKey": "管理 API 密钥",
+    "apiKeyDescription": "您的 API 密钥安全地存储在您的设备上，用于与 Deepseek AI 服务通信。",
+    "save": "保存",
+    "appearance": "外观",
+    "themeMode": "主题模式",
+    "themes": {
+      "auto": "自动（系统）",
+      "light": "浅色",
+      "dark": "深色"
+    },
+    "language": "语言设置",
+    "preferredLanguage": "首选语言",
+    "languages": {
+      "english": "英语",
+      "chinese": "中文"
+    },
+    "dataManagement": "数据管理",
+    "clearAllHistory": "清除所有聊天记录",
+    "clear": "清除",
+    "confirmClear": "清除所有聊天记录？",
+    "confirmClearMessage": "这将永久删除您的所有聊天记录。此操作无法撤消。"
+  },
+  "common": {
+    "cancel": "取消",
+    "confirm": "确认"
+  }
+}

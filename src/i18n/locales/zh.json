@@ -16,7 +16,11 @@
     "unexpectedFormat": "抱歉，收到了意外的响应格式。请重试。",
     "invalidApiKey": "您的 API 密钥似乎无效。请在设置中检查您的 API 密钥。",
     "authError": "身份验证失败。请在设置中验证您的 API 密钥。",
-    "noApiKey": "请在设置选项卡中设置您的 Deepseek API 密钥，然后再发送消息。"
+    "noApiKey": "请在设置选项卡中设置您的 Deepseek API 密钥，然后再发送消息。",
+    "tokenUsage": "令牌用量：",
+    "promptTokens": "提示",
+    "completionTokens": "完成",
+    "totalTokens": "总计"
   },
   "timeline": {
     "today": "今天",

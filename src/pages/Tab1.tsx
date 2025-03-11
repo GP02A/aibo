@@ -18,6 +18,8 @@ import {
   IonItemOptions,
   IonItemOption,
   IonListHeader,
+  IonChip,
+  IonText,
 } from '@ionic/react';
 import { useState, useEffect, useRef } from 'react';
 import { Preferences } from '@capacitor/preferences';
@@ -30,6 +32,11 @@ import '../i18n';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  tokenUsage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 interface ChatSession {
@@ -50,6 +57,11 @@ const Tab1: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>('');
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [currentTokenUsage, setCurrentTokenUsage] = useState<{
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  } | null>(null);
 
   useEffect(() => {
     loadChatSessions();
@@ -205,6 +217,9 @@ const Tab1: React.FC = () => {
     // Create a new AbortController
     const controller = new AbortController();
     setAbortController(controller);
+    
+    // Reset token usage for new message
+    setCurrentTokenUsage(null);
 
     // Check if API key is available
     if (!apiKey) {
@@ -293,6 +308,11 @@ const Tab1: React.FC = () => {
       const decoder = new TextDecoder("utf-8");
       let accumulatedContent = '';
       let receivedFirstChunk = false;
+      let tokenUsage: {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+      } | undefined = undefined;
   
       if (reader) {
         while (true) {
@@ -316,6 +336,16 @@ const Tab1: React.FC = () => {
               // Parse the JSON data
               const data = JSON.parse(jsonData);
               
+              // Check for token usage information
+              if (data.usage) {
+                tokenUsage = {
+                  promptTokens: data.usage.prompt_tokens,
+                  completionTokens: data.usage.completion_tokens,
+                  totalTokens: data.usage.total_tokens
+                };
+                setCurrentTokenUsage(tokenUsage);
+              }
+              
               // Extract the content delta
               if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content) {
                 const contentDelta = data.choices[0].delta.content;
@@ -333,7 +363,8 @@ const Tab1: React.FC = () => {
                   const newMessages = [...prev];
                   newMessages[newMessages.length - 1] = {
                     role: 'assistant',
-                    content: accumulatedContent
+                    content: accumulatedContent,
+                    ...(tokenUsage ? { tokenUsage } : {})
                   };
                   return newMessages;
                 });
@@ -348,6 +379,21 @@ const Tab1: React.FC = () => {
             }
           }
         }
+        
+        // If we have token usage at the end, make sure it's saved with the message
+        if (tokenUsage !== undefined) {
+          setCurrentMessages(prev => {
+            const newMessages = [...prev];
+            if (newMessages.length > 0) {
+              newMessages[newMessages.length - 1] = {
+                ...newMessages[newMessages.length - 1],
+                tokenUsage: tokenUsage
+              };
+            }
+            return newMessages;
+          });
+        }
+        
         // Final scroll after streaming completes
         setTimeout(scrollToBottom, 100);
       }
@@ -446,41 +492,69 @@ const Tab1: React.FC = () => {
             <IonList lines="none" className="ion-padding">
               {currentMessages.map((message, index) => (
                 <div key={index} className={`ion-margin-vertical ${message.role === 'user' ? 'ion-text-end' : 'ion-text-start'}`}>
-                  <div className="ion-padding-horizontal ion-margin-vertical">
-                    <div className="message-container" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      {message.role === 'assistant' && (
-                        <IonIcon icon={hardwareChipOutline} size="small" color="medium" className="ion-margin-end" />
-                      )}
-                      
-                      <div 
-                        className={`ion-padding message-bubble ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
-                        style={{
-                          display: 'inline-block',
-                          maxWidth: '80%',
-                          borderRadius: message.role === 'user' ? '0' : '12px',
-                          boxShadow: message.role === 'user' ? 'none' : '0 1px 2px rgba(0,0,0,0.2)',
-                          backgroundColor: message.role === 'user' ? 'transparent' : 'var(--ion-color-light)',
-                          color: message.role === 'user' ? 'var(--ion-color-dark)' : 'var(--ion-color-dark)',
-                          whiteSpace: 'normal',
-                          wordBreak: 'break-word'
-                        }}
-                      >
-                        {message.role === 'assistant' ? (
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
-                        ) : (
-                          message.content
+                  <IonItem lines="none" className="ion-no-padding">
+                    <div className="ion-padding-horizontal ion-margin-vertical ion-no-padding" style={{ width: '100%' }}>
+                      {/* Message container with proper flex alignment */}
+                      <div className={`message-row ion-justify-content-${message.role === 'user' ? 'end' : 'start'}`} 
+                           style={{ display: 'flex', alignItems: 'flex-start' }}>
+                        
+                        {/* Assistant avatar */}
+                        {message.role === 'assistant' && (
+                          <IonIcon icon={hardwareChipOutline} size="small" color="medium" className="ion-margin-end" />
+                        )}
+                        
+                        {/* Message bubble */}
+                        <div 
+                          className={`ion-padding message-bubble ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
+                          style={{
+                            maxWidth: '80%',
+                            borderRadius: message.role === 'user' ? '0' : '12px',
+                            boxShadow: message.role === 'user' ? 'none' : '0 1px 2px rgba(0,0,0,0.2)',
+                            backgroundColor: message.role === 'user' ? 'transparent' : 'var(--ion-color-light)',
+                            color: message.role === 'user' ? 'var(--ion-color-dark)' : 'var(--ion-color-dark)',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word'
+                          }}
+                        >
+                          {message.role === 'assistant' ? (
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          ) : (
+                            message.content
+                          )}
+                        </div>
+                        
+                        {/* User avatar */}
+                        {message.role === 'user' && (
+                          <IonIcon icon={personCircleOutline} size="small" color="primary" className="ion-margin-start" />
                         )}
                       </div>
                       
-                      {message.role === 'user' && (
-                        <IonIcon icon={personCircleOutline} size="small" color="primary" className="ion-margin-start" />
+                      {/* Token usage information with proper alignment */}
+                      {message.role === 'assistant' && message.tokenUsage && (
+                        <div className="ion-padding-start" style={{ 
+                          display: 'flex', 
+                          justifyContent: 'flex-start',
+                          marginTop: '4px',
+                          marginLeft: message.role === 'assistant' ? '24px' : '0',
+                        }}>
+                          <IonChip color="medium" outline={true} style={{ 
+                            fontSize: '0.7rem', 
+                            height: '20px',
+                            margin: '0'
+                          }}>
+                            <IonLabel color="medium" style={{ fontSize: '0.7rem' }}>
+                              {t('chat.tokenUsage')} 
+                              {message.tokenUsage.promptTokens && ` ${t('chat.promptTokens')}: ${message.tokenUsage.promptTokens} |`}
+                              {message.tokenUsage.completionTokens && ` ${t('chat.completionTokens')}: ${message.tokenUsage.completionTokens} |`}
+                              {message.tokenUsage.totalTokens && ` ${t('chat.totalTokens')}: ${message.tokenUsage.totalTokens}`}
+                            </IonLabel>
+                          </IonChip>
+                        </div>
                       )}
                     </div>
-                  </div>
+                  </IonItem>
                 </div>
               ))}
-              
-              {/* Remove the separate loading indicator since we're now integrating it with the streaming response */}
             </IonList>
           </IonContent>
           

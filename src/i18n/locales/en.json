@@ -16,7 +16,11 @@
     "unexpectedFormat": "Sorry, I received an unexpected response format. Please try again.",
     "invalidApiKey": "Your API key appears to be invalid. Please check your API key in Settings.",
     "authError": "Authentication failed. Please verify your API key in Settings.",
-    "noApiKey": "Please set your Deepseek API key in the Settings tab before sending messages."
+    "noApiKey": "Please set your Deepseek API key in the Settings tab before sending messages.",
+    "tokenUsage": "Token Usage:",
+    "promptTokens": "Prompt",
+    "completionTokens": "Completion",
+    "totalTokens": "Total"
   },
   "timeline": {
     "today": "Today",

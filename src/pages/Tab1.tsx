@@ -284,7 +284,8 @@ const Tab1: React.FC = () => {
           </IonContent>
         </IonMenu>
 
-        <IonPage id="main-content">
+        {/* Replace IonPage with a div that has the id */}
+        <div id="main-content" className="ion-page">
           <IonHeader>
             <IonToolbar>
               <IonMenuToggle slot="start">
@@ -304,7 +305,6 @@ const Tab1: React.FC = () => {
             </IonToolbar>
           </IonHeader>
           
-          {/* Fixed nested IonContent issue */}
           <IonContent>
             <IonList lines="none" className="ion-padding">
               {currentMessages.map((message, index) => (
@@ -401,7 +401,7 @@ const Tab1: React.FC = () => {
               </div>
             </IonToolbar>
           </IonFooter>
-        </IonPage>
+        </div>
       </IonSplitPane>
     </IonPage>
   );

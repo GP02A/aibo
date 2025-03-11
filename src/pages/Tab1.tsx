@@ -19,7 +19,7 @@ import {
   IonItemOption,
   IonListHeader,
 } from '@ionic/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Preferences } from '@capacitor/preferences';
 import { chatbubbleEllipses, add, ellipsisHorizontal, hardwareChipOutline, personCircleOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
@@ -49,6 +49,7 @@ const Tab1: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string>('');
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   useEffect(() => {
     loadChatSessions();
@@ -158,8 +159,52 @@ const Tab1: React.FC = () => {
 
   // Update error messages to use translations
   // Update sendMessage function to show loading state
+  // Update sendMessage function to use streaming
+  // Add a reference to the content element
+  const contentRef = useRef<HTMLIonContentElement>(null);
+  
+  // Add a function to scroll to bottom
+  const scrollToBottom = () => {
+    if (contentRef.current) {
+      contentRef.current.scrollToBottom(300);
+    }
+  };
+  
+  // Update sendMessage function to scroll after updates
+  // Function to stop the ongoing response
+  const stopResponse = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setIsLoading(false);
+      
+      // Update the last message to indicate it was stopped
+      setCurrentMessages(prev => {
+        const newMessages = [...prev];
+        if (prev.length > 0 && prev[prev.length - 1].role === 'assistant') {
+          newMessages[newMessages.length - 1] = {
+            ...newMessages[newMessages.length - 1],
+            content: newMessages[newMessages.length - 1].content + 
+                     `\n\n_${t('chat.responseStopped')}_`
+          };
+        }
+        return newMessages;
+      });
+    }
+  };
+  
+  // Update sendMessage function to use AbortController
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
+    
+    // If there's an ongoing request, stop it first
+    if (abortController) {
+      stopResponse();
+    }
+    
+    // Create a new AbortController
+    const controller = new AbortController();
+    setAbortController(controller);
 
     // Check if API key is available
     if (!apiKey) {
@@ -167,6 +212,8 @@ const Tab1: React.FC = () => {
         role: 'assistant', 
         content: t('chat.noApiKey')
       }]);
+      setTimeout(scrollToBottom, 100);
+      setAbortController(null);
       return;
     }
 
@@ -174,12 +221,20 @@ const Tab1: React.FC = () => {
     setCurrentMessages(prev => [...prev, newMessage]);
     setInputMessage('');
     setIsLoading(true);
+    setTimeout(scrollToBottom, 100);
 
     try {
       const formattedMessages = [...currentMessages, newMessage].map(msg => ({
         role: msg.role,
         content: msg.content
       }));
+
+      // Add a placeholder message for streaming responses with "thinking" text
+      setCurrentMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `${t('chat.thinking')}` 
+      }]);
+      setTimeout(scrollToBottom, 100);
 
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
@@ -189,58 +244,140 @@ const Tab1: React.FC = () => {
         },
         body: JSON.stringify({
           model: "deepseek-chat",
-          messages: formattedMessages
-        })
+          messages: formattedMessages,
+          stream: true // Enable streaming
+        }),
+        signal: controller.signal // Add the abort signal
       });
 
       // Check for authentication errors first
       if (response.status === 401 || response.status === 403) {
-        setCurrentMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: t('chat.authError')
-        }]);
+        setCurrentMessages(prev => {
+          // Replace the placeholder message
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = { 
+            role: 'assistant', 
+            content: t('chat.authError')
+          };
+          return newMessages;
+        });
+        setIsLoading(false);
         return;
       }
 
-      const data = await response.json();
-      
-      // Check for API errors
-      if (data.error) {
-        if (data.error.type === 'invalid_request_error' && 
-            data.error.message && 
-            data.error.message.includes('API key')) {
-          setCurrentMessages(prev => [...prev, { 
-            role: 'assistant', 
-            content: t('chat.invalidApiKey')
-          }]);
-        } else {
-          setCurrentMessages(prev => [...prev, { 
-            role: 'assistant', 
-            content: `${t('chat.errorMessage')} ${data.error.message}`
-          }]);
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        setCurrentMessages(prev => {
+          // Replace the placeholder message
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = errorData.error && 
+              errorData.error.type === 'invalid_request_error' && 
+              errorData.error.message && 
+              errorData.error.message.includes('API key')
+            ? { 
+                role: 'assistant', 
+                content: t('chat.invalidApiKey')
+              }
+            : { 
+                role: 'assistant', 
+                content: `${t('chat.errorMessage')} ${errorData.error?.message || ''}`
+              };
+          return newMessages;
+        });
+        setIsLoading(false);
         return;
       }
-      
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        setCurrentMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: data.choices[0].message.content 
-        }]);
-      } else {
-        setCurrentMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: t('chat.unexpectedFormat')
-        }]);
+
+      // Process the streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let accumulatedContent = '';
+      let receivedFirstChunk = false;
+  
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          // Decode the chunk
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // Process each line in the chunk
+          const lines = chunk.split('\n').filter(line => line.trim() !== '');
+          
+          for (const line of lines) {
+            // Skip empty lines and "[DONE]" message
+            if (line === 'data: [DONE]' || !line.trim()) continue;
+            
+            // Remove the "data: " prefix
+            const jsonData = line.replace(/^data: /, '').trim();
+            
+            try {
+              // Parse the JSON data
+              const data = JSON.parse(jsonData);
+              
+              // Extract the content delta
+              if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content) {
+                const contentDelta = data.choices[0].delta.content;
+                
+                // If this is the first content chunk, replace the "thinking" message
+                if (!receivedFirstChunk) {
+                  accumulatedContent = contentDelta;
+                  receivedFirstChunk = true;
+                } else {
+                  accumulatedContent += contentDelta;
+                }
+                
+                // Update the message with accumulated content
+                setCurrentMessages(prev => {
+                  const newMessages = [...prev];
+                  newMessages[newMessages.length - 1] = {
+                    role: 'assistant',
+                    content: accumulatedContent
+                  };
+                  return newMessages;
+                });
+                
+                // Scroll to bottom periodically during streaming (not on every update to avoid jankiness)
+                if (accumulatedContent.length % 100 === 0) {
+                  setTimeout(scrollToBottom, 50);
+                }
+              }
+            } catch (e) {
+              console.error('Error parsing streaming response:', e, jsonData);
+            }
+          }
+        }
+        // Final scroll after streaming completes
+        setTimeout(scrollToBottom, 100);
       }
     } catch (error) {
-      console.error('API error:', error);
-      setCurrentMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: t('chat.errorMessage')
-      }]);
+      // Check if this is an abort error
+      if ((error as Error).name === 'AbortError') {
+        console.log('Request was aborted');
+      } else {
+        console.error('API error:', error);
+        setCurrentMessages(prev => {
+          // Replace the placeholder message
+          const newMessages = [...prev];
+          if (prev[prev.length - 1].role === 'assistant') {
+            newMessages[newMessages.length - 1] = { 
+              role: 'assistant', 
+              content: t('chat.errorMessage')
+            };
+            return newMessages;
+          }
+          return [...prev, { 
+            role: 'assistant', 
+            content: t('chat.errorMessage')
+          }];
+        });
+      }
     } finally {
-      setIsLoading(false);
+      if (!abortController?.signal.aborted) {
+        setIsLoading(false);
+        setAbortController(null);
+      }
     }
   };
 
@@ -305,7 +442,7 @@ const Tab1: React.FC = () => {
             </IonToolbar>
           </IonHeader>
           
-          <IonContent>
+          <IonContent ref={contentRef}>
             <IonList lines="none" className="ion-padding">
               {currentMessages.map((message, index) => (
                 <div key={index} className={`ion-margin-vertical ${message.role === 'user' ? 'ion-text-end' : 'ion-text-start'}`}>
@@ -343,34 +480,7 @@ const Tab1: React.FC = () => {
                 </div>
               ))}
               
-              {/* Loading indicator */}
-              {isLoading && (
-                <div className="ion-margin-vertical ion-text-start">
-                  <div className="ion-padding-horizontal ion-margin-vertical">
-                    <div className="message-container" style={{ display: 'flex', alignItems: 'flex-start' }}>
-                      <IonIcon icon={hardwareChipOutline} size="small" color="medium" className="ion-margin-end" />
-                      
-                      <div 
-                        className="ion-padding message-bubble assistant-message"
-                        style={{
-                          display: 'inline-block',
-                          maxWidth: '80%',
-                          borderRadius: '12px',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                          backgroundColor: 'var(--ion-color-light)',
-                          color: 'var(--ion-color-dark)',
-                          whiteSpace: 'normal'
-                        }}
-                      >
-                        <div className="ion-text-center">
-                          <IonIcon icon={ellipsisHorizontal} className="ion-padding-end" />
-                          {t('chat.thinking')}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Remove the separate loading indicator since we're now integrating it with the streaming response */}
             </IonList>
           </IonContent>
           
@@ -389,14 +499,25 @@ const Tab1: React.FC = () => {
                       }
                     }}
                   />
-                  <IonButton
-                    slot="end"
-                    onClick={sendMessage}
-                    disabled={!inputMessage.trim()}
-                    size="default"
-                  >
-                    {t('chat.send')}
-                  </IonButton>
+                  {isLoading ? (
+                    <IonButton
+                      slot="end"
+                      onClick={stopResponse}
+                      color="danger"
+                      size="default"
+                    >
+                      {t('chat.stop')}
+                    </IonButton>
+                  ) : (
+                    <IonButton
+                      slot="end"
+                      onClick={sendMessage}
+                      disabled={!inputMessage.trim()}
+                      size="default"
+                    >
+                      {t('chat.send')}
+                    </IonButton>
+                  )}
                 </IonItem>
               </div>
             </IonToolbar>

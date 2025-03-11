@@ -3,11 +3,14 @@
     "title": "AI 聊天"
   },
   "chat": {
+    "thinking": "思考中...",
     "newChat": "新对话",
     "saveChat": "保存对话",
     "clearHistory": "清除历史",
     "inputPlaceholder": "输入消息...",
     "send": "发送",
+    "stop": "停止",
+    "responseStopped": "回复已被用户停止",
     "delete": "删除",
     "errorMessage": "抱歉，处理您的请求时出错。",
     "unexpectedFormat": "抱歉，收到了意外的响应格式。请重试。",

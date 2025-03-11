@@ -9,6 +9,8 @@
     "clearHistory": "Clear History",
     "inputPlaceholder": "Type your message...",
     "send": "Send",
+    "stop": "Stop",
+    "responseStopped": "Response stopped by user",
     "delete": "Delete",
     "errorMessage": "Sorry, there was an error processing your request.",
     "unexpectedFormat": "Sorry, I received an unexpected response format. Please try again.",

@@ -6,7 +6,6 @@ import {
   IonToolbar, 
   IonList, 
   IonItem, 
-  IonInput, 
   IonButton, 
   IonFooter,
   IonSplitPane,
@@ -18,16 +17,17 @@ import {
   IonItemOptions,
   IonItemOption,
   IonListHeader,
-  IonChip,
-  IonText,
 } from '@ionic/react';
 import { useState, useEffect, useRef } from 'react';
 import { Preferences } from '@capacitor/preferences';
-import { chatbubbleEllipses, add, ellipsisHorizontal, hardwareChipOutline, personCircleOutline } from 'ionicons/icons';
+import { chatbubbleEllipses, add } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
-import ReactMarkdown from 'react-markdown';
 import './Tab1.css';
 import '../i18n';
+import MessageBubble from '../components/MessageBubble';
+import ChatInput from '../components/ChatInput';
+import ChatSidebar from '../components/ChatSidebar';
+import { ChatService, API_KEY_STORAGE } from '../services/ChatService';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -47,7 +47,7 @@ interface ChatSession {
 }
 
 const STORAGE_KEY = 'chat_sessions';
-const API_KEY_STORAGE = 'deepseek_api_key';
+// Remove duplicate API_KEY_STORAGE constant since it's imported from ChatService
 
 const Tab1: React.FC = () => {
   const { t } = useTranslation();
@@ -82,13 +82,9 @@ const Tab1: React.FC = () => {
   }, []);
 
   const loadApiKey = async () => {
-    try {
-      const { value } = await Preferences.get({ key: API_KEY_STORAGE });
-      if (value) {
-        setApiKey(value);
-      }
-    } catch (error) {
-      console.error('Failed to load API key:', error);
+    const key = await ChatService.getApiKey();
+    if (key) {
+      setApiKey(key);
     }
   };
 
@@ -206,6 +202,7 @@ const Tab1: React.FC = () => {
   };
   
   // Update sendMessage function to use AbortController
+  // Update sendMessage function to properly handle the async flow
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
     
@@ -233,194 +230,98 @@ const Tab1: React.FC = () => {
     }
 
     const newMessage: Message = { role: 'user', content: inputMessage };
-    setCurrentMessages(prev => [...prev, newMessage]);
+    
+    // Update messages with user input first
+    const updatedMessages = [...currentMessages, newMessage];
+    setCurrentMessages(updatedMessages);
     setInputMessage('');
     setIsLoading(true);
     setTimeout(scrollToBottom, 100);
 
+    // Add a placeholder message for streaming responses with "thinking" text
+    setCurrentMessages(prev => [...prev, { 
+      role: 'assistant', 
+      content: `${t('chat.thinking')}` 
+    }]);
+    setTimeout(scrollToBottom, 100);
+
     try {
-      const formattedMessages = [...currentMessages, newMessage].map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      // Add a placeholder message for streaming responses with "thinking" text
-      setCurrentMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: `${t('chat.thinking')}` 
-      }]);
-      setTimeout(scrollToBottom, 100);
-
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: formattedMessages,
-          stream: true // Enable streaming
-        }),
-        signal: controller.signal // Add the abort signal
-      });
-
-      // Check for authentication errors first
-      if (response.status === 401 || response.status === 403) {
-        setCurrentMessages(prev => {
-          // Replace the placeholder message
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = { 
-            role: 'assistant', 
-            content: t('chat.authError')
-          };
-          return newMessages;
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        setCurrentMessages(prev => {
-          // Replace the placeholder message
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = errorData.error && 
-              errorData.error.type === 'invalid_request_error' && 
-              errorData.error.message && 
-              errorData.error.message.includes('API key')
-            ? { 
-                role: 'assistant', 
-                content: t('chat.invalidApiKey')
-              }
-            : { 
-                role: 'assistant', 
-                content: `${t('chat.errorMessage')} ${errorData.error?.message || ''}`
-              };
-          return newMessages;
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Process the streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let accumulatedContent = '';
-      let receivedFirstChunk = false;
-      let tokenUsage: {
-        promptTokens?: number;
-        completionTokens?: number;
-        totalTokens?: number;
-      } | undefined = undefined;
-  
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          // Decode the chunk
-          const chunk = decoder.decode(value, { stream: true });
-          
-          // Process each line in the chunk
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
-          
-          for (const line of lines) {
-            // Skip empty lines and "[DONE]" message
-            if (line === 'data: [DONE]' || !line.trim()) continue;
-            
-            // Remove the "data: " prefix
-            const jsonData = line.replace(/^data: /, '').trim();
-            
-            try {
-              // Parse the JSON data
-              const data = JSON.parse(jsonData);
-              
-              // Check for token usage information
-              if (data.usage) {
-                tokenUsage = {
-                  promptTokens: data.usage.prompt_tokens,
-                  completionTokens: data.usage.completion_tokens,
-                  totalTokens: data.usage.total_tokens
-                };
-                setCurrentTokenUsage(tokenUsage);
-              }
-              
-              // Extract the content delta
-              if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content) {
-                const contentDelta = data.choices[0].delta.content;
-                
-                // If this is the first content chunk, replace the "thinking" message
-                if (!receivedFirstChunk) {
-                  accumulatedContent = contentDelta;
-                  receivedFirstChunk = true;
-                } else {
-                  accumulatedContent += contentDelta;
-                }
-                
-                // Update the message with accumulated content
-                setCurrentMessages(prev => {
-                  const newMessages = [...prev];
-                  newMessages[newMessages.length - 1] = {
-                    role: 'assistant',
-                    content: accumulatedContent,
-                    ...(tokenUsage ? { tokenUsage } : {})
-                  };
-                  return newMessages;
-                });
-                
-                // Scroll to bottom periodically during streaming (not on every update to avoid jankiness)
-                if (accumulatedContent.length % 100 === 0) {
-                  setTimeout(scrollToBottom, 50);
-                }
-              }
-            } catch (e) {
-              console.error('Error parsing streaming response:', e, jsonData);
-            }
-          }
-        }
-        
-        // If we have token usage at the end, make sure it's saved with the message
-        if (tokenUsage !== undefined) {
+      await ChatService.sendChatRequest(
+        apiKey,
+        updatedMessages, // Use the updated messages array
+        controller.signal,
+        (content, tokenUsage) => {
+          // Update the message with accumulated content
           setCurrentMessages(prev => {
             const newMessages = [...prev];
             if (newMessages.length > 0) {
+              // Make sure to include the token usage in the message
               newMessages[newMessages.length - 1] = {
-                ...newMessages[newMessages.length - 1],
-                tokenUsage: tokenUsage
+                role: 'assistant',
+                content: content,
+                tokenUsage: tokenUsage // Ensure this is properly passed
+              };
+              
+              // Remove this console log if it exists
+              // console.log('Updating message with token usage:', tokenUsage);
+            }
+            return newMessages;
+          });
+          
+          // Also update the current token usage state
+          if (tokenUsage) {
+            setCurrentTokenUsage(tokenUsage);
+          }
+          
+          // Scroll to bottom periodically during streaming
+          if (content.length % 100 === 0) {
+            setTimeout(scrollToBottom, 50);
+          }
+        },
+        (errorType, errorMessage) => {
+          setCurrentMessages(prev => {
+            // Replace the placeholder message
+            const newMessages = [...prev];
+            let errorContent = '';
+            
+            switch (errorType) {
+              case 'auth_error':
+                errorContent = t('chat.authError');
+                break;
+              case 'invalid_api_key':
+                errorContent = t('chat.invalidApiKey');
+                break;
+              default:
+                errorContent = `${t('chat.errorMessage')} ${errorMessage}`;
+            }
+            
+            if (newMessages.length > 0) {
+              newMessages[newMessages.length - 1] = { 
+                role: 'assistant', 
+                content: errorContent
               };
             }
             return newMessages;
           });
         }
-        
-        // Final scroll after streaming completes
-        setTimeout(scrollToBottom, 100);
-      }
+      );
     } catch (error) {
-      // Check if this is an abort error
-      if ((error as Error).name === 'AbortError') {
-        console.log('Request was aborted');
-      } else {
-        console.error('API error:', error);
-        setCurrentMessages(prev => {
-          // Replace the placeholder message
-          const newMessages = [...prev];
-          if (prev[prev.length - 1].role === 'assistant') {
-            newMessages[newMessages.length - 1] = { 
-              role: 'assistant', 
-              content: t('chat.errorMessage')
-            };
-            return newMessages;
-          }
-          return [...prev, { 
+      console.error('Error in sendMessage:', error);
+      setCurrentMessages(prev => {
+        const newMessages = [...prev];
+        if (newMessages.length > 0) {
+          newMessages[newMessages.length - 1] = { 
             role: 'assistant', 
-            content: t('chat.errorMessage')
-          }];
-        });
-      }
+            content: `${t('chat.errorMessage')} ${(error as Error).message}`
+          };
+        }
+        return newMessages;
+      });
     } finally {
-      if (!abortController?.signal.aborted) {
+      // Final scroll after streaming completes
+      setTimeout(scrollToBottom, 100);
+      
+      if (!controller.signal.aborted) {
         setIsLoading(false);
         setAbortController(null);
       }
@@ -431,43 +332,14 @@ const Tab1: React.FC = () => {
     <IonPage>
       <IonSplitPane contentId="main-content">
         <IonMenu contentId="main-content">
-          <IonHeader>
-            <IonToolbar>
-              <IonButton fill="clear" expand="block" onClick={() => setCurrentMessages([])}>
-                <IonIcon slot="start" icon={add} />
-                {t('chat.newChat')}
-              </IonButton>
-            </IonToolbar>
-          </IonHeader>
-          <IonContent>
-            <IonList>
-              {Object.entries(getGroupedSessions()).map(([period, sessions]) => (
-                sessions.length > 0 && (
-                  <div key={period}>
-                    <IonListHeader>
-                      <IonLabel>{period}</IonLabel>
-                    </IonListHeader>
-                    {sessions.map((session) => (
-                      <IonItemSliding key={session.id}>
-                        <IonItem button onClick={() => setCurrentMessages(session.messages)}>
-                          <IonIcon slot="start" icon={chatbubbleEllipses} />
-                          <IonLabel>{session.title}</IonLabel>
-                        </IonItem>
-                        <IonItemOptions side="end">
-                          <IonItemOption color="danger" onClick={() => deleteSession(session.id)}>
-                            {t('chat.delete')}
-                          </IonItemOption>
-                        </IonItemOptions>
-                      </IonItemSliding>
-                    ))}
-                  </div>
-                )
-              ))}
-            </IonList>
-          </IonContent>
+          <ChatSidebar 
+            chatSessions={chatSessions}
+            setCurrentMessages={setCurrentMessages}
+            deleteSession={deleteSession}
+            getGroupedSessions={getGroupedSessions}
+          />
         </IonMenu>
 
-        {/* Replace IonPage with a div that has the id */}
         <div id="main-content" className="ion-page">
           <IonHeader>
             <IonToolbar>
@@ -491,110 +363,25 @@ const Tab1: React.FC = () => {
           <IonContent ref={contentRef}>
             <IonList lines="none" className="ion-padding">
               {currentMessages.map((message, index) => (
-                <div key={index} className={`ion-margin-vertical ${message.role === 'user' ? 'ion-text-end' : 'ion-text-start'}`}>
-                  <IonItem lines="none" className="ion-no-padding">
-                    <div className="ion-padding-horizontal ion-margin-vertical ion-no-padding" style={{ width: '100%' }}>
-                      {/* Message container with proper flex alignment */}
-                      <div className={`message-row ion-justify-content-${message.role === 'user' ? 'end' : 'start'}`} 
-                           style={{ display: 'flex', alignItems: 'flex-start' }}>
-                        
-                        {/* Assistant avatar */}
-                        {message.role === 'assistant' && (
-                          <IonIcon icon={hardwareChipOutline} size="small" color="medium" className="ion-margin-end" />
-                        )}
-                        
-                        {/* Message bubble */}
-                        <div 
-                          className={`ion-padding message-bubble ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
-                          style={{
-                            maxWidth: '80%',
-                            borderRadius: message.role === 'user' ? '0' : '12px',
-                            boxShadow: message.role === 'user' ? 'none' : '0 1px 2px rgba(0,0,0,0.2)',
-                            backgroundColor: message.role === 'user' ? 'transparent' : 'var(--ion-color-light)',
-                            color: message.role === 'user' ? 'var(--ion-color-dark)' : 'var(--ion-color-dark)',
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word'
-                          }}
-                        >
-                          {message.role === 'assistant' ? (
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          ) : (
-                            message.content
-                          )}
-                        </div>
-                        
-                        {/* User avatar */}
-                        {message.role === 'user' && (
-                          <IonIcon icon={personCircleOutline} size="small" color="primary" className="ion-margin-start" />
-                        )}
-                      </div>
-                      
-                      {/* Token usage information with proper alignment */}
-                      {message.role === 'assistant' && message.tokenUsage && (
-                        <div className="ion-padding-start" style={{ 
-                          display: 'flex', 
-                          justifyContent: 'flex-start',
-                          marginTop: '4px',
-                          marginLeft: message.role === 'assistant' ? '24px' : '0',
-                        }}>
-                          <IonChip color="medium" outline={true} style={{ 
-                            fontSize: '0.7rem', 
-                            height: '20px',
-                            margin: '0'
-                          }}>
-                            <IonLabel color="medium" style={{ fontSize: '0.7rem' }}>
-                              {t('chat.tokenUsage')} 
-                              {message.tokenUsage.promptTokens && ` ${t('chat.promptTokens')}: ${message.tokenUsage.promptTokens} |`}
-                              {message.tokenUsage.completionTokens && ` ${t('chat.completionTokens')}: ${message.tokenUsage.completionTokens} |`}
-                              {message.tokenUsage.totalTokens && ` ${t('chat.totalTokens')}: ${message.tokenUsage.totalTokens}`}
-                            </IonLabel>
-                          </IonChip>
-                        </div>
-                      )}
-                    </div>
-                  </IonItem>
-                </div>
+                <MessageBubble 
+                  key={index}
+                  role={message.role}
+                  content={message.content}
+                  tokenUsage={message.tokenUsage}
+                  isStreaming={isLoading && index === currentMessages.length - 1 && message.role === 'assistant'}
+                />
               ))}
             </IonList>
           </IonContent>
           
           <IonFooter>
-            <IonToolbar>
-              <div className="ion-padding-horizontal ion-margin-vertical">
-                <IonItem lines="none">
-                  <IonInput
-                    fill="solid"
-                    value={inputMessage}
-                    placeholder={t('chat.inputPlaceholder')}
-                    onIonInput={e => setInputMessage(e.detail.value || '')}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && inputMessage.trim()) {
-                        sendMessage();
-                      }
-                    }}
-                  />
-                  {isLoading ? (
-                    <IonButton
-                      slot="end"
-                      onClick={stopResponse}
-                      color="danger"
-                      size="default"
-                    >
-                      {t('chat.stop')}
-                    </IonButton>
-                  ) : (
-                    <IonButton
-                      slot="end"
-                      onClick={sendMessage}
-                      disabled={!inputMessage.trim()}
-                      size="default"
-                    >
-                      {t('chat.send')}
-                    </IonButton>
-                  )}
-                </IonItem>
-              </div>
-            </IonToolbar>
+            <ChatInput
+              inputMessage={inputMessage}
+              setInputMessage={setInputMessage}
+              sendMessage={sendMessage}
+              stopResponse={stopResponse}
+              isLoading={isLoading}
+            />
           </IonFooter>
         </div>
       </IonSplitPane>

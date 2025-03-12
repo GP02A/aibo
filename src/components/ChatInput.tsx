@@ -1,6 +1,6 @@
 import { IonInput, IonItem, IonButton, IonToolbar } from '@ionic/react';
 import { useTranslation } from 'react-i18next';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 interface ChatInputProps {
   inputMessage: string;
@@ -19,9 +19,55 @@ const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLIonInputElement>(null);
+  const toolbarRef = useRef<HTMLIonToolbarElement>(null);
+
+  useEffect(() => {
+    // Apply optimized styles for smoother transitions
+    if (toolbarRef.current) {
+      toolbarRef.current.style.willChange = 'transform';
+      toolbarRef.current.style.transition = 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)';
+      toolbarRef.current.style.zIndex = '1000';
+      toolbarRef.current.style.position = 'relative';
+    }
+
+    // More responsive keyboard show handler with improved timing
+    const handleKeyboardDidShow = (event: CustomEvent<any>) => {
+      const keyboardHeight = event.detail?.keyboardHeight || 0;
+      
+      // Use RAF for better sync with rendering cycle
+      requestAnimationFrame(() => {
+        if (toolbarRef.current) {
+          // Apply transform immediately
+          toolbarRef.current.style.transform = `translateY(-${keyboardHeight}px)`;
+        }
+        
+        // Focus after transform is applied
+        setTimeout(() => {
+          inputRef.current?.setFocus();
+        }, 50);
+      });
+    };
+    
+    // Smoother keyboard hide transition
+    const handleKeyboardDidHide = () => {
+      requestAnimationFrame(() => {
+        if (toolbarRef.current) {
+          toolbarRef.current.style.transform = 'translateY(0)';
+        }
+      });
+    };
+    
+    window.addEventListener('ionKeyboardDidShow', handleKeyboardDidShow as EventListener);
+    window.addEventListener('ionKeyboardDidHide', handleKeyboardDidHide as EventListener);
+    
+    return () => {
+      window.removeEventListener('ionKeyboardDidShow', handleKeyboardDidShow as EventListener);
+      window.removeEventListener('ionKeyboardDidHide', handleKeyboardDidHide as EventListener);
+    };
+  }, []);
 
   return (
-    <IonToolbar>
+    <IonToolbar ref={toolbarRef} className="chat-input-toolbar">
       <div className="ion-padding-horizontal ion-margin-vertical">
         <IonItem lines="none">
           <IonInput

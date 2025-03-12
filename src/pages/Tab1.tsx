@@ -1,24 +1,15 @@
-import { 
-  IonContent, 
-  IonHeader, 
-  IonPage, 
-  IonTitle, 
-  IonToolbar, 
-  IonList, 
-  IonItem, 
-  IonButton, 
-  IonFooter,
-  IonSplitPane,
-  IonMenu,
-  IonMenuToggle,
-  IonIcon,
-  IonLabel,
-  IonItemSliding,
-  IonItemOptions,
-  IonItemOption,
-  IonListHeader,
+// Ionic Framework components
+// Framework imports
+import {
+  IonContent, IonHeader, IonPage, IonTitle, IonToolbar,
+  IonList, IonItem, IonButton, IonFooter, IonSplitPane,
+  IonMenu, IonMenuToggle, IonIcon, IonLabel, IonItemSliding,
+  IonItemOptions, IonItemOption, IonListHeader
 } from '@ionic/react';
-import { useState, useEffect, useRef } from 'react';
+import {
+  useState, useEffect, useRef, useCallback, useMemo
+} from 'react';
+import { throttle } from 'lodash-es';
 import { Preferences } from '@capacitor/preferences';
 import { chatbubbleEllipses, add } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
@@ -172,11 +163,15 @@ const Tab1: React.FC = () => {
   const contentRef = useRef<HTMLIonContentElement>(null);
   
   // Add a function to scroll to bottom
-  const scrollToBottom = () => {
-    if (contentRef.current) {
-      contentRef.current.scrollToBottom(300);
-    }
-  };
+  const scrollToBottom = useCallback(() => {
+    contentRef.current?.scrollToBottom(300);
+  }, []);
+
+  // Throttle scroll events to improve performance
+  const throttledScroll = useMemo(() =>
+    throttle(() => scrollToBottom(), 500),
+    [scrollToBottom]
+  );
   
   // Update sendMessage function to scroll after updates
   // Function to stop the ongoing response
@@ -274,8 +269,8 @@ const Tab1: React.FC = () => {
           }
           
           // Scroll to bottom periodically during streaming
-          if (content.length % 100 === 0) {
-            setTimeout(scrollToBottom, 50);
+          if (content.length % 50 === 0) {
+            throttledScroll();
           }
         },
         (errorType, errorMessage) => {

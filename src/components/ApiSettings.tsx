@@ -68,6 +68,7 @@ const ApiSettings: React.FC = () => {
       setProviders(loadedProviders);
     } catch (error) {
       console.error('Failed to load API providers:', error);
+      // Continue with empty providers array rather than crashing
     }
   };
 
@@ -79,6 +80,10 @@ const ApiSettings: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to load active provider:', error);
+      // Default to first provider if available
+      if (providers.length > 0) {
+        setActiveProviderId(providers[0].id);
+      }
     }
   };
 

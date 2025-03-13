@@ -63,6 +63,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           });
         } catch (error) {
           console.warn('Keyboard plugin error:', error);
+          // Continue without keyboard adjustments if plugin fails
         }
       };
       
@@ -98,6 +99,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, []);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey && inputMessage.trim()) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   return (
     <IonToolbar ref={toolbarRef} className="chat-input-toolbar">
       <div className="ion-padding-horizontal ion-margin-vertical">
@@ -108,11 +116,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             value={inputMessage}
             placeholder={t('chat.inputPlaceholder')}
             onIonInput={e => setInputMessage(e.detail.value || '')}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && inputMessage.trim()) {
-                sendMessage();
-              }
-            }}
+            onKeyDown={handleKeyDown}
           />
           {isLoading ? (
             <IonButton

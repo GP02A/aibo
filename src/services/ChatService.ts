@@ -68,6 +68,7 @@ export class ChatService {
       }));
     } catch (error) {
       console.error('Failed to load API providers:', error);
+      // Return default providers on error
       return DEFAULT_PROVIDERS.map(provider => ({
         ...provider,
         apiKey: ''
@@ -299,7 +300,7 @@ export class ChatService {
       console.error('Error in sendChatRequest:', error);
       
       if (error.name === 'AbortError') {
-        console.log('Request was aborted');
+        // Request was aborted by user, no need to log
       } else if (error.status === 401 || error.status === 403) {
         onError('auth_error', 'Authentication error');
       } else if (error.message && error.message.includes('API key')) {

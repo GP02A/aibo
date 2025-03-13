@@ -23,11 +23,11 @@ import { languageOutline, trashOutline, moonOutline } from 'ionicons/icons';
 import ApiSettings from '../components/ApiSettings';
 import './Tab2.css';
 
-// Theme constants
-const THEME_PREFERENCE_KEY = 'theme_preference';
-const THEME_AUTO = 'auto';
-const THEME_LIGHT = 'light';
-const THEME_DARK = 'dark';
+// Theme constants - exported for use in other components
+export const THEME_PREFERENCE_KEY = 'theme_preference';
+export const THEME_AUTO = 'auto';
+export const THEME_LIGHT = 'light';
+export const THEME_DARK = 'dark';
 
 const Tab2: React.FC = () => {
   const { t, i18n } = useTranslation();

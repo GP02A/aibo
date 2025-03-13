@@ -9,6 +9,9 @@ import Tab1 from './pages/Tab1';
 import Tab2 from './pages/Tab2';
 import { useTranslation } from 'react-i18next';
 
+// Import theme constants directly from Tab2
+import { THEME_PREFERENCE_KEY, THEME_AUTO, THEME_LIGHT, THEME_DARK } from './pages/Tab2';
+
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
 
@@ -30,8 +33,6 @@ import './theme/variables.css';
 
 setupIonicReact();
 
-const THEME_PREFERENCE_KEY = 'theme_preference';
-
 const App: React.FC = () => {
   const { t } = useTranslation();
 
@@ -42,17 +43,20 @@ const App: React.FC = () => {
   const initializeTheme = async () => {
     try {
       const { value } = await Preferences.get({ key: THEME_PREFERENCE_KEY });
-      if (value === 'dark') {
+      if (value === THEME_DARK) {
         document.body.classList.add('dark');
-      } else if (value === 'light') {
+      } else if (value === THEME_LIGHT) {
         document.body.classList.remove('dark');
       } else {
-        // If no preference is set, check system preference
+        // If no preference is set or set to auto, check system preference
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         document.body.classList.toggle('dark', prefersDark);
       }
     } catch (error) {
       console.error('Failed to initialize theme:', error);
+      // Default to system preference on error
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.body.classList.toggle('dark', prefersDark);
     }
   };
 

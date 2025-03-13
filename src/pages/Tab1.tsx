@@ -163,24 +163,18 @@ const Tab1: React.FC = () => {
     saveChatSessions(updatedSessions);
   };
 
-  // Update error messages to use translations
-  // Update sendMessage function to show loading state
-  // Update sendMessage function to use streaming
   // Add a reference to the content element
   const contentRef = useRef<HTMLIonContentElement>(null);
   
-  // Add a function to scroll to bottom
   const scrollToBottom = useCallback(() => {
     contentRef.current?.scrollToBottom(300);
   }, []);
 
-  // Throttle scroll events to improve performance
   const throttledScroll = useMemo(() =>
     throttle(() => scrollToBottom(), 500),
     [scrollToBottom]
   );
   
-  // Update sendMessage function to scroll after updates
   // Function to stop the ongoing response
   const stopResponse = () => {
     if (abortController) {
@@ -203,8 +197,6 @@ const Tab1: React.FC = () => {
     }
   };
   
-  // Update sendMessage function to use AbortController
-  // Update sendMessage function to properly handle the async flow
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
     

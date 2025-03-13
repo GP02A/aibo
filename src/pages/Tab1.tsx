@@ -63,12 +63,19 @@ const Tab1: React.FC = () => {
       setApiKey(event.detail);
     };
     
-    // Add event listener
-    document.addEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
+    // Add event listener for active provider changes
+    const handleProviderChange = () => {
+      loadApiKey(); // Reload API key when provider changes
+    };
     
-    // Clean up event listener when component unmounts
+    // Add event listeners
+    document.addEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
+    document.addEventListener('activeProviderChanged', handleProviderChange as EventListener);
+    
+    // Clean up event listeners when component unmounts
     return () => {
       document.removeEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
+      document.removeEventListener('activeProviderChanged', handleProviderChange as EventListener);
     };
   }, []);
 
@@ -213,8 +220,11 @@ const Tab1: React.FC = () => {
     // Reset token usage for new message
     setCurrentTokenUsage(null);
 
+    // Get the latest API key directly from the service
+    const currentApiKey = await ChatService.getApiKey();
+    
     // Check if API key is available
-    if (!apiKey) {
+    if (!currentApiKey) {
       setCurrentMessages(prev => [...prev, { 
         role: 'assistant', 
         content: t('chat.noApiKey')
@@ -222,6 +232,11 @@ const Tab1: React.FC = () => {
       setTimeout(scrollToBottom, 100);
       setAbortController(null);
       return;
+    }
+
+    // Update the state with the latest API key
+    if (currentApiKey !== apiKey) {
+      setApiKey(currentApiKey);
     }
 
     const newMessage: Message = { role: 'user', content: inputMessage };
@@ -242,7 +257,7 @@ const Tab1: React.FC = () => {
 
     try {
       await ChatService.sendChatRequest(
-        apiKey,
+        currentApiKey, // Use the freshly fetched API key
         updatedMessages, // Use the updated messages array
         controller.signal,
         (content, tokenUsage) => {
@@ -256,9 +271,6 @@ const Tab1: React.FC = () => {
                 content: content,
                 tokenUsage: tokenUsage // Ensure this is properly passed
               };
-              
-              // Remove this console log if it exists
-              // console.log('Updating message with token usage:', tokenUsage);
             }
             return newMessages;
           });

@@ -107,7 +107,10 @@ export class ChatService {
         value: providerId,
       });
       // Dispatch event for components to update
-      document.dispatchEvent(new CustomEvent('activeProviderChanged', { detail: providerId }));
+      // Use setTimeout to ensure the event is dispatched after the current execution context
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('activeProviderChanged', { detail: providerId }));
+      }, 0);
     } catch (error) {
       console.error('Failed to save active provider:', error);
       throw error;
@@ -193,7 +196,10 @@ export class ChatService {
       await this.saveApiProviders(updatedProviders);
       
       // Dispatch event for components to update
-      document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
+      // Use setTimeout to ensure the event is dispatched after the current execution context
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
+      }, 0);
     } catch (error) {
       console.error('Failed to save API key:', error);
       throw error;
@@ -254,7 +260,12 @@ export class ChatService {
         
         if (contentDelta) {
           accumulatedContent += contentDelta;
-          onChunk(accumulatedContent, tokenUsage);
+          // Use a Promise to ensure the event is processed before continuing
+          await new Promise<void>((resolve) => {
+            onChunk(accumulatedContent, tokenUsage);
+            // Use setTimeout to allow the UI to update before resolving
+            setTimeout(() => resolve(), 0);
+          });
         }
 
         // Check for usage info (typically in the last chunk)
@@ -267,12 +278,22 @@ export class ChatService {
             completionTokens: chunkWithUsage.usage.completion_tokens,
             totalTokens: chunkWithUsage.usage.total_tokens
           };
-          onChunk(accumulatedContent, tokenUsage);
+          // Use a Promise to ensure the event is processed before continuing
+          await new Promise<void>((resolve) => {
+            onChunk(accumulatedContent, tokenUsage);
+            // Use setTimeout to allow the UI to update before resolving
+            setTimeout(() => resolve(), 0);
+          });
         }
       }
 
       // Make sure to send the final token usage when the stream is complete
-      onChunk(accumulatedContent, tokenUsage);
+      // Use a Promise to ensure the event is processed before completing
+      await new Promise<void>((resolve) => {
+        onChunk(accumulatedContent, tokenUsage);
+        // Use setTimeout to allow the UI to update before resolving
+        setTimeout(() => resolve(), 0);
+      });
 
     } catch (error: any) {
       console.error('Error in sendChatRequest:', error);

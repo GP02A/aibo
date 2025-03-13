@@ -99,7 +99,25 @@ const ApiSettings: React.FC = () => {
   const handleSaveApiKey = async (apiKey: string) => {
     try {
       await ChatService.saveApiKey(apiKey);
-      loadProviders(); // Reload providers to reflect the updated API key
+      
+      // Wait for the save operation to complete before reloading providers
+      // Use a longer delay to ensure the data is properly saved
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Reload providers to reflect the updated API key
+      await loadProviders();
+      
+      // Double-check that the API key was saved correctly
+      const providers = await ChatService.getApiProviders();
+      const activeProvider = providers.find(p => p.id === activeProviderId);
+      
+      if (activeProvider && activeProvider.apiKey !== apiKey) {
+        console.warn('API key verification failed in component - retrying save');
+        // Try saving again
+        await ChatService.saveApiKey(apiKey);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await loadProviders();
+      }
     } catch (error) {
       console.error('Failed to save API key:', error);
     }

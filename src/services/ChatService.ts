@@ -79,10 +79,27 @@ export class ChatService {
   // Save all API providers
   static async saveApiProviders(providers: ApiProvider[]): Promise<void> {
     try {
+      // Save the providers to storage
       await Preferences.set({
         key: API_PROVIDERS_STORAGE,
         value: JSON.stringify(providers),
       });
+      
+      // Add a longer delay to ensure the data is properly saved
+      // before any other operations that might depend on this data
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      // Verify the data was saved correctly
+      const { value } = await Preferences.get({ key: API_PROVIDERS_STORAGE });
+      if (!value) {
+        console.warn('Failed to verify API providers were saved - no value returned');
+        // Try saving again
+        await Preferences.set({
+          key: API_PROVIDERS_STORAGE,
+          value: JSON.stringify(providers),
+        });
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
     } catch (error) {
       console.error('Failed to save API providers:', error);
       throw error;
@@ -196,11 +213,27 @@ export class ChatService {
       // Save the updated providers
       await this.saveApiProviders(updatedProviders);
       
-      // Dispatch event for components to update
-      // Use setTimeout to ensure the event is dispatched after the current execution context
-      setTimeout(() => {
-        document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
-      }, 0);
+      // Verify the API key was properly saved by reading it back
+      const verifiedProviders = await this.getApiProviders();
+      const verifiedProvider = verifiedProviders.find(p => p.id === activeProviderId);
+      
+      if (verifiedProvider && verifiedProvider.apiKey === apiKey) {
+        // Only dispatch the event if the API key was successfully saved
+        // Use setTimeout to ensure the event is dispatched after the current execution context
+        setTimeout(() => {
+          document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
+        }, 0);
+      } else {
+        console.warn('API key verification failed - saved value does not match');
+        // Try saving again with a longer delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await this.saveApiProviders(updatedProviders);
+        
+        // Dispatch event after the second attempt
+        setTimeout(() => {
+          document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
+        }, 0);
+      }
     } catch (error) {
       console.error('Failed to save API key:', error);
       throw error;

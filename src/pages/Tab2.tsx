@@ -14,22 +14,17 @@ import {
   IonIcon,
   IonItemDivider,
   IonItemGroup,
-  IonListHeader,
-  IonInput,
-  IonModal,
-  IonFooter,
-  IonSegment,
-  IonSegmentButton
+  IonListHeader
 } from '@ionic/react';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { Preferences } from '@capacitor/preferences';
-import { languageOutline, trashOutline, keyOutline, moonOutline, chevronForward } from 'ionicons/icons';
+import { languageOutline, trashOutline, moonOutline } from 'ionicons/icons';
+import ApiSettings from '../components/ApiSettings';
 import './Tab2.css';
 
 // Theme constants
 const THEME_PREFERENCE_KEY = 'theme_preference';
-const API_KEY_STORAGE = 'deepseek_api_key';
 const THEME_AUTO = 'auto';
 const THEME_LIGHT = 'light';
 const THEME_DARK = 'dark';
@@ -38,64 +33,10 @@ const Tab2: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [themeMode, setThemeMode] = useState(THEME_AUTO);
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKeyOptions, setShowApiKeyOptions] = useState(false);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  const [tempApiKey, setTempApiKey] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
   
   useEffect(() => {
     loadThemePreference();
-    loadApiKey();
   }, []);
-
-  const loadApiKey = async () => {
-    try {
-      const { value } = await Preferences.get({ key: API_KEY_STORAGE });
-      if (value) {
-        setApiKey(value);
-      }
-    } catch (error) {
-      console.error('Failed to load API key:', error);
-    }
-  };
-
-  const openApiKeyModal = () => {
-    setTempApiKey(apiKey);
-    setIsEditing(!apiKey); // Start in edit mode if no key exists
-    setIsApiKeyModalOpen(true);
-  };
-
-  const saveApiKey = async () => {
-    try {
-      await Preferences.set({
-        key: API_KEY_STORAGE,
-        value: tempApiKey,
-      });
-      setApiKey(tempApiKey);
-      setIsEditing(false);
-      // Dispatch custom event to notify other components
-      document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: tempApiKey }));
-      // Close the modal automatically after saving
-      setIsApiKeyModalOpen(false);
-    } catch (error) {
-      console.error('Failed to save API key:', error);
-    }
-  };
-
-  const deleteApiKey = async () => {
-    try {
-      await Preferences.remove({ key: API_KEY_STORAGE });
-      setApiKey('');
-      setTempApiKey('');
-      setShowApiKeyOptions(false);
-      // Dispatch custom event with empty string to notify other components
-      document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: '' }));
-      setIsApiKeyModalOpen(false);
-    } catch (error) {
-      console.error('Failed to delete API key:', error);
-    }
-  };
 
   const loadThemePreference = async () => {
     try {
@@ -166,23 +107,8 @@ const Tab2: React.FC = () => {
       </IonHeader>
       <IonContent>
         <IonList>
-          <IonItemGroup>
-            <IonListHeader>
-              <IonLabel>
-                <IonIcon icon={keyOutline} className="ion-margin-end" />
-                {t('settings.apiSettings')}
-              </IonLabel>
-            </IonListHeader>
-            <IonItem button onClick={openApiKeyModal}>
-              <IonLabel>
-                {t('settings.deepseekApiKey')}
-                <p className="ion-text-wrap">
-                  {apiKey ? '••••••••••••••••' : t('settings.noApiKey')}
-                </p>
-              </IonLabel>
-              <IonIcon icon={chevronForward} slot="end" />
-            </IonItem>
-          </IonItemGroup>
+          {/* API Settings Component */}
+          <ApiSettings />
 
           <IonItemDivider className="ion-margin-top" />
 
@@ -273,93 +199,6 @@ const Tab2: React.FC = () => {
             },
           ]}
         />
-
-        <IonAlert
-          isOpen={showApiKeyOptions}
-          onDidDismiss={() => setShowApiKeyOptions(false)}
-          header={t('settings.apiKeyOptions')}
-          buttons={[
-            {
-              text: t('common.cancel'),
-              role: 'cancel',
-              handler: () => {
-                setShowApiKeyOptions(false);
-              },
-            },
-            {
-              text: t('settings.deleteApiKey'),
-              role: 'destructive',
-              handler: deleteApiKey,
-            },
-          ]}
-        />
-
-        <IonModal isOpen={isApiKeyModalOpen} onDidDismiss={() => setIsApiKeyModalOpen(false)}>
-          <IonHeader>
-            <IonToolbar>
-              <IonTitle>{t('settings.manageApiKey')}</IonTitle>
-            </IonToolbar>
-          </IonHeader>
-          <IonContent className="ion-padding">
-            <IonItem>
-              <IonLabel position="stacked">{t('settings.deepseekApiKey')}</IonLabel>
-              <IonInput
-                type="text"
-                value={tempApiKey}
-                placeholder={t('settings.enterApiKey')}
-                onIonInput={e => setTempApiKey(e.detail.value || '')}
-                readonly={!isEditing}
-                className={!isEditing && apiKey ? 'ion-text-muted' : ''}
-              />
-            </IonItem>
-            <div className="ion-padding">
-              <p className="ion-text-wrap ion-text-small ion-color-medium">
-                {t('settings.apiKeyDescription')}
-              </p>
-            </div>
-          </IonContent>
-          <IonFooter>
-            <IonToolbar>
-              {!apiKey ? (
-                // No API key saved - Add/Cancel buttons
-                <IonSegment>
-                  <IonSegmentButton onClick={saveApiKey} disabled={!tempApiKey.trim()}>
-                    <IonLabel color="primary">{t('settings.save')}</IonLabel>
-                  </IonSegmentButton>
-                  <IonSegmentButton onClick={() => setIsApiKeyModalOpen(false)}>
-                    <IonLabel>{t('common.cancel')}</IonLabel>
-                  </IonSegmentButton>
-                </IonSegment>
-              ) : !isEditing ? (
-                // API key saved, not editing - Edit/Delete/Cancel buttons
-                <IonSegment>
-                  <IonSegmentButton onClick={() => setIsEditing(true)}>
-                    <IonLabel color="primary">{t('settings.editApiKey')}</IonLabel>
-                  </IonSegmentButton>
-                  <IonSegmentButton onClick={deleteApiKey} >
-                    <IonLabel color="danger">{t('settings.deleteApiKey')}</IonLabel>
-                  </IonSegmentButton>
-                  <IonSegmentButton onClick={() => setIsApiKeyModalOpen(false)}>
-                    <IonLabel>{t('common.cancel')}</IonLabel>
-                  </IonSegmentButton>
-                </IonSegment>
-              ) : (
-                // API key saved, editing - Save/Cancel buttons
-                <IonSegment>
-                  <IonSegmentButton onClick={saveApiKey} disabled={!tempApiKey.trim()}>
-                    <IonLabel color="primary">{t('settings.save')}</IonLabel>
-                  </IonSegmentButton>
-                  <IonSegmentButton onClick={() => {
-                    setIsEditing(false);
-                    setTempApiKey(apiKey);
-                  }}>
-                    <IonLabel>{t('common.cancel')}</IonLabel>
-                  </IonSegmentButton>
-                </IonSegment>
-              )}
-            </IonToolbar>
-          </IonFooter>
-        </IonModal>
       </IonContent>
     </IonPage>
   );

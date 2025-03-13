@@ -1,4 +1,5 @@
 import { Preferences } from '@capacitor/preferences';
+import OpenAI from 'openai';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -10,25 +11,187 @@ interface Message {
   };
 }
 
-export const API_KEY_STORAGE = 'deepseek_api_key';
+interface ApiProvider {
+  id: string;
+  name: string;
+  baseURL: string;
+  apiKey: string;
+  model: string;
+}
+
+const API_PROVIDERS_STORAGE = 'api_providers';
+const ACTIVE_PROVIDER_STORAGE = 'active_provider';
+// Keep the old key for backward compatibility
+const LEGACY_API_KEY_STORAGE = 'deepseek_api_key';
+
+// Default providers configuration
+const DEFAULT_PROVIDERS = [
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    baseURL: 'https://api.deepseek.com/v1',
+    model: 'deepseek-chat'
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    baseURL: 'https://api.openai.com/v1',
+    model: 'gpt-3.5-turbo'
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    baseURL: 'https://openrouter.ai/api/v1',
+    model: 'openai/gpt-3.5-turbo'
+  },
+  {
+    id: 'custom',
+    name: 'Custom',
+    baseURL: '',
+    model: ''
+  }
+];
 
 export class ChatService {
+  // Get all available API providers
+  static async getApiProviders(): Promise<ApiProvider[]> {
+    try {
+      const { value } = await Preferences.get({ key: API_PROVIDERS_STORAGE });
+      if (value) {
+        return JSON.parse(value);
+      }
+      
+      // If no providers are stored, return default providers with empty API keys
+      return DEFAULT_PROVIDERS.map(provider => ({
+        ...provider,
+        apiKey: ''
+      }));
+    } catch (error) {
+      console.error('Failed to load API providers:', error);
+      return DEFAULT_PROVIDERS.map(provider => ({
+        ...provider,
+        apiKey: ''
+      }));
+    }
+  }
+
+  // Save all API providers
+  static async saveApiProviders(providers: ApiProvider[]): Promise<void> {
+    try {
+      await Preferences.set({
+        key: API_PROVIDERS_STORAGE,
+        value: JSON.stringify(providers),
+      });
+    } catch (error) {
+      console.error('Failed to save API providers:', error);
+      throw error;
+    }
+  }
+
+  // Get the active provider ID
+  static async getActiveProviderId(): Promise<string | null> {
+    try {
+      const { value } = await Preferences.get({ key: ACTIVE_PROVIDER_STORAGE });
+      return value || 'deepseek'; // Default to deepseek if not set
+    } catch (error) {
+      console.error('Failed to load active provider:', error);
+      return 'deepseek';
+    }
+  }
+
+  // Set the active provider ID
+  static async setActiveProviderId(providerId: string): Promise<void> {
+    try {
+      await Preferences.set({
+        key: ACTIVE_PROVIDER_STORAGE,
+        value: providerId,
+      });
+      // Dispatch event for components to update
+      document.dispatchEvent(new CustomEvent('activeProviderChanged', { detail: providerId }));
+    } catch (error) {
+      console.error('Failed to save active provider:', error);
+      throw error;
+    }
+  }
+
+  // Get the active provider
+  static async getActiveProvider(): Promise<ApiProvider | null> {
+    try {
+      const providerId = await this.getActiveProviderId();
+      const providers = await this.getApiProviders();
+      
+      // Find the active provider
+      const activeProvider = providers.find(p => p.id === providerId);
+      
+      // If no active provider found, try to migrate from legacy API key
+      if (!activeProvider || !activeProvider.apiKey) {
+        return await this.migrateLegacyApiKey(providers);
+      }
+      
+      return activeProvider;
+    } catch (error) {
+      console.error('Failed to get active provider:', error);
+      return null;
+    }
+  }
+
+  // For backward compatibility: migrate from the old API key storage
+  static async migrateLegacyApiKey(providers: ApiProvider[]): Promise<ApiProvider | null> {
+    try {
+      const { value } = await Preferences.get({ key: LEGACY_API_KEY_STORAGE });
+      if (value) {
+        // Update the DeepSeek provider with the legacy API key
+        const updatedProviders = providers.map(provider => {
+          if (provider.id === 'deepseek') {
+            return { ...provider, apiKey: value };
+          }
+          return provider;
+        });
+        
+        // Save the updated providers
+        await this.saveApiProviders(updatedProviders);
+        
+        // Set DeepSeek as the active provider
+        await this.setActiveProviderId('deepseek');
+        
+        // Return the updated DeepSeek provider
+        return updatedProviders.find(p => p.id === 'deepseek') || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to migrate legacy API key:', error);
+      return null;
+    }
+  }
+
+  // For backward compatibility: get the API key from the old storage
   static async getApiKey(): Promise<string | null> {
     try {
-      const { value } = await Preferences.get({ key: API_KEY_STORAGE });
-      return value || null;
+      const activeProvider = await this.getActiveProvider();
+      return activeProvider?.apiKey || null;
     } catch (error) {
       console.error('Failed to load API key:', error);
       return null;
     }
   }
 
+  // For backward compatibility: save the API key to the active provider
   static async saveApiKey(apiKey: string): Promise<void> {
     try {
-      await Preferences.set({
-        key: API_KEY_STORAGE,
-        value: apiKey,
+      const activeProviderId = await this.getActiveProviderId();
+      const providers = await this.getApiProviders();
+      
+      // Update the active provider with the new API key
+      const updatedProviders = providers.map(provider => {
+        if (provider.id === activeProviderId) {
+          return { ...provider, apiKey };
+        }
+        return provider;
       });
+      
+      // Save the updated providers
+      await this.saveApiProviders(updatedProviders);
+      
       // Dispatch event for components to update
       document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
     } catch (error) {
@@ -50,112 +213,78 @@ export class ChatService {
         return;
       }
 
+      // Get the active provider
+      const activeProvider = await this.getActiveProvider();
+      if (!activeProvider) {
+        onError('invalid_provider', 'No active provider configured');
+        return;
+      }
+
+      // Create OpenAI client with provider-specific configuration
+      const openai = new OpenAI({
+        apiKey: apiKey,
+        baseURL: activeProvider.baseURL,
+        dangerouslyAllowBrowser: true // Allow usage in browser
+      });
+
+      // Format messages for the API
       const formattedMessages = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: formattedMessages,
-          stream: true
-        }),
-        signal: abortSignal
-      });
+      // Create streaming completion
+      const stream = await openai.chat.completions.create({
+        model: activeProvider.model,
+        messages: formattedMessages,
+        stream: true
+      }, { signal: abortSignal });
 
-      if (response.status === 401 || response.status === 403) {
-        onError('auth_error', 'Authentication error');
-        return;
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        if (errorData.error && 
-            errorData.error.type === 'invalid_request_error' && 
-            errorData.error.message && 
-            errorData.error.message.includes('API key')) {
-          onError('invalid_api_key', 'Invalid API key');
-        } else {
-          onError('api_error', errorData.error?.message || 'Unknown error');
-        }
-        return;
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder("utf-8");
       let accumulatedContent = '';
-      let receivedFirstChunk = false;
       let tokenUsage = {
         promptTokens: undefined,
         completionTokens: undefined,
         totalTokens: undefined
       };
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
-          
-          for (const line of lines) {
-            if (line === 'data: [DONE]' || !line.trim()) continue;
-            
-            const jsonData = line.replace(/^data: /, '').trim();
-            
-            try {
-              const data = JSON.parse(jsonData);
-              
-              if (data.usage) {
-                // Update token usage with the latest data
-                tokenUsage = {
-                  promptTokens: data.usage.prompt_tokens,
-                  completionTokens: data.usage.completion_tokens,
-                  totalTokens: data.usage.total_tokens
-                };
-                // Remove this console log
-              }
-              
-              if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content) {
-                const contentDelta = data.choices[0].delta.content;
-                
-                if (!receivedFirstChunk) {
-                  accumulatedContent = contentDelta;
-                  receivedFirstChunk = true;
-                } else {
-                  accumulatedContent += contentDelta;
-                }
-                
-                // Always pass the current token usage with each content update
-                onChunk(accumulatedContent, tokenUsage);
-              }
-            } catch (e) {
-              console.error('Error parsing streaming response:', e, jsonData);
-            }
-          }
-        }
+      // Process the stream
+      for await (const chunk of stream) {
+        // Extract content from the chunk
+        const contentDelta = chunk.choices[0]?.delta?.content || '';
         
-        // Make sure to send the final token usage when the stream is complete
-        if (receivedFirstChunk) {
+        if (contentDelta) {
+          accumulatedContent += contentDelta;
+          onChunk(accumulatedContent, tokenUsage);
+        }
+
+        // Check for usage info (typically in the last chunk)
+        // The OpenAI SDK doesn't include usage in stream chunks by default
+        // We need to cast the chunk to access potential usage data
+        const chunkWithUsage = chunk as any;
+        if (chunkWithUsage.usage) {
+          tokenUsage = {
+            promptTokens: chunkWithUsage.usage.prompt_tokens,
+            completionTokens: chunkWithUsage.usage.completion_tokens,
+            totalTokens: chunkWithUsage.usage.total_tokens
+          };
           onChunk(accumulatedContent, tokenUsage);
         }
       }
-    } catch (error) {
+
+      // Make sure to send the final token usage when the stream is complete
+      onChunk(accumulatedContent, tokenUsage);
+
+    } catch (error: any) {
       console.error('Error in sendChatRequest:', error);
       
-      if ((error as Error).name === 'AbortError') {
+      if (error.name === 'AbortError') {
         console.log('Request was aborted');
+      } else if (error.status === 401 || error.status === 403) {
+        onError('auth_error', 'Authentication error');
+      } else if (error.message && error.message.includes('API key')) {
+        onError('invalid_api_key', 'Invalid API key');
       } else {
-        console.error('API error:', error);
-        onError('network_error', (error as Error).message);
+        onError('network_error', error.message || 'Unknown error');
       }
     }
   }

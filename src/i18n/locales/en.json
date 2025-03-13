@@ -16,7 +16,8 @@
     "unexpectedFormat": "Sorry, I received an unexpected response format. Please try again.",
     "invalidApiKey": "Your API key appears to be invalid. Please check your API key in Settings.",
     "authError": "Authentication failed. Please verify your API key in Settings.",
-    "noApiKey": "Please set your Deepseek API key in the Settings tab before sending messages.",
+    "networkError": "Network error. Please check your internet connection and try again.",
+    "noApiKey": "Please set an API key in the Settings tab before sending messages.",
     "tokenUsage": "Token Usage:",
     "promptTokens": "Prompt",
     "completionTokens": "Completion",
@@ -36,14 +37,23 @@
   "settings": {
     "title": "Settings",
     "apiSettings": "API Settings",
-    "deepseekApiKey": "Deepseek API Key",
+    "apiProviders": "API Providers",
+    "activeProvider": "Active Provider",
+    "selectProvider": "Select Provider",
+    "addProvider": "Add Provider",
+    "editProvider": "Edit Provider",
+    "deleteProvider": "Delete Provider",
+    "providerName": "Provider Name",
+    "baseUrl": "Base URL",
+    "modelName": "Model Name",
+    "apiKey": "API Key",
     "enterApiKey": "Enter your API key",
     "apiKeyOptions": "API Key Options",
     "deleteApiKey": "Delete",
     "editApiKey": "Edit",
     "noApiKey": "No API key set",
     "manageApiKey": "Manage API Key",
-    "apiKeyDescription": "Your API key is stored securely on your device and is used to communicate with the Deepseek AI service.",
+    "apiKeyDescription": "Your API key is stored securely on your device and is used to communicate with the selected AI service.",
     "save": "Save",
     "appearance": "Appearance",
     "themeMode": "Theme Mode",
@@ -69,5 +79,11 @@
   "common": {
     "cancel": "Cancel",
     "confirm": "Confirm"
+  },
+  "providers": {
+    "deepseek": "DeepSeek",
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "custom": "Custom"
   }
 }

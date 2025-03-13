@@ -1,6 +1,8 @@
 import { IonInput, IonItem, IonButton, IonToolbar } from '@ionic/react';
 import { useTranslation } from 'react-i18next';
 import { useRef, useEffect } from 'react';
+import { Keyboard } from '@capacitor/keyboard';
+import { isPlatform } from '@ionic/react';
 
 interface ChatInputProps {
   inputMessage: string;
@@ -30,40 +32,70 @@ const ChatInput: React.FC<ChatInputProps> = ({
       toolbarRef.current.style.position = 'relative';
     }
 
-    // More responsive keyboard show handler with improved timing
-    const handleKeyboardDidShow = (event: CustomEvent<any>) => {
-      const keyboardHeight = event.detail?.keyboardHeight || 0;
-      
-      // Use RAF for better sync with rendering cycle
-      requestAnimationFrame(() => {
-        if (toolbarRef.current) {
-          // Apply transform immediately
-          toolbarRef.current.style.transform = `translateY(-${keyboardHeight}px)`;
+    // Check if we're on a mobile device
+    const isMobile = isPlatform('ios') || isPlatform('android');
+
+    if (isMobile) {
+      // Mobile implementation using Capacitor
+      const setupKeyboardListeners = async () => {
+        try {
+          // Handle keyboard showing
+          await Keyboard.addListener('keyboardWillShow', (info) => {
+            requestAnimationFrame(() => {
+              if (toolbarRef.current) {
+                toolbarRef.current.style.transform = `translateY(-${info.keyboardHeight}px)`;
+              }
+              
+              // Focus after transform is applied
+              setTimeout(() => {
+                inputRef.current?.setFocus();
+              }, 50);
+            });
+          });
+          
+          // Handle keyboard hiding
+          await Keyboard.addListener('keyboardWillHide', () => {
+            requestAnimationFrame(() => {
+              if (toolbarRef.current) {
+                toolbarRef.current.style.transform = 'translateY(0)';
+              }
+            });
+          });
+        } catch (error) {
+          console.warn('Keyboard plugin error:', error);
         }
-        
-        // Focus after transform is applied
+      };
+      
+      setupKeyboardListeners();
+      
+      // Clean up event listeners when component unmounts
+      return () => {
+        Keyboard.removeAllListeners().catch(err => 
+          console.warn('Error removing keyboard listeners:', err)
+        );
+      };
+    } else {
+      // Web implementation using DOM events
+      const handleFocus = () => {
+        // Ensure input is focused
         setTimeout(() => {
           inputRef.current?.setFocus();
         }, 50);
-      });
-    };
-    
-    // Smoother keyboard hide transition
-    const handleKeyboardDidHide = () => {
-      requestAnimationFrame(() => {
-        if (toolbarRef.current) {
-          toolbarRef.current.style.transform = 'translateY(0)';
+      };
+      
+      // Add focus event listener for web
+      const inputElement = inputRef.current as HTMLElement | null;
+      if (inputElement) {
+        inputElement.addEventListener('focus', handleFocus);
+      }
+      
+      return () => {
+        // Clean up web event listeners
+        if (inputElement) {
+          inputElement.removeEventListener('focus', handleFocus);
         }
-      });
-    };
-    
-    window.addEventListener('ionKeyboardDidShow', handleKeyboardDidShow as EventListener);
-    window.addEventListener('ionKeyboardDidHide', handleKeyboardDidHide as EventListener);
-    
-    return () => {
-      window.removeEventListener('ionKeyboardDidShow', handleKeyboardDidShow as EventListener);
-      window.removeEventListener('ionKeyboardDidHide', handleKeyboardDidHide as EventListener);
-    };
+      };
+    }
   }, []);
 
   return (

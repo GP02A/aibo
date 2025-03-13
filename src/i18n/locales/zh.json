@@ -16,7 +16,8 @@
     "unexpectedFormat": "抱歉，收到了意外的响应格式。请重试。",
     "invalidApiKey": "您的 API 密钥似乎无效。请在设置中检查您的 API 密钥。",
     "authError": "身份验证失败。请在设置中验证您的 API 密钥。",
-    "noApiKey": "请在设置选项卡中设置您的 Deepseek API 密钥，然后再发送消息。",
+    "networkError": "网络错误。请检查您的互联网连接并重试。",
+    "noApiKey": "请在设置选项卡中设置 API 密钥，然后再发送消息。",
     "tokenUsage": "令牌用量：",
     "promptTokens": "提示",
     "completionTokens": "完成",
@@ -36,14 +37,23 @@
   "settings": {
     "title": "设置",
     "apiSettings": "API 设置",
-    "deepseekApiKey": "Deepseek API 密钥",
+    "apiProviders": "API 提供商",
+    "activeProvider": "当前提供商",
+    "selectProvider": "选择提供商",
+    "addProvider": "添加提供商",
+    "editProvider": "编辑提供商",
+    "deleteProvider": "删除提供商",
+    "providerName": "提供商名称",
+    "baseUrl": "基础 URL",
+    "modelName": "模型名称",
+    "apiKey": "API 密钥",
     "enterApiKey": "输入您的 API 密钥",
     "apiKeyOptions": "API 密钥选项",
     "deleteApiKey": "删除",
     "editApiKey": "编辑",
     "noApiKey": "未设置 API 密钥",
     "manageApiKey": "管理 API 密钥",
-    "apiKeyDescription": "您的 API 密钥安全地存储在您的设备上，用于与 Deepseek AI 服务通信。",
+    "apiKeyDescription": "您的 API 密钥安全地存储在您的设备上，用于与所选 AI 服务通信。",
     "save": "保存",
     "appearance": "外观",
     "themeMode": "主题模式",
@@ -67,5 +77,11 @@
   "common": {
     "cancel": "取消",
     "confirm": "确认"
+  },
+  "providers": {
+    "deepseek": "DeepSeek",
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "custom": "自定义"
   }
 }

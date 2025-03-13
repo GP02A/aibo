@@ -18,7 +18,7 @@ import '../i18n';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ChatSidebar from '../components/ChatSidebar';
-import { ChatService, API_KEY_STORAGE } from '../services/ChatService';
+import { ChatService } from '../services/ChatService';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -285,6 +285,9 @@ const Tab1: React.FC = () => {
                 break;
               case 'invalid_api_key':
                 errorContent = t('chat.invalidApiKey');
+                break;
+              case 'network_error':
+                errorContent = t('chat.networkError');
                 break;
               default:
                 errorContent = `${t('chat.errorMessage')} ${errorMessage}`;

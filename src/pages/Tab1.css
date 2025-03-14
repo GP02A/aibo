@@ -32,3 +32,19 @@
   color: var(--ion-color-dark);
   border-bottom-left-radius: 4px;
 }
+
+
+/* Provider selector styling */
+.provider-selector {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  --background: transparent;
+}
+
+.provider-select {
+  min-width: 120px;
+  max-width: 150px;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  font-size: 0.9rem;
+}

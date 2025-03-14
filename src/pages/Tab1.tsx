@@ -4,14 +4,14 @@ import {
   IonContent, IonHeader, IonPage, IonTitle, IonToolbar,
   IonList, IonItem, IonButton, IonFooter, IonSplitPane,
   IonMenu, IonMenuToggle, IonIcon, IonLabel, IonItemSliding,
-  IonItemOptions, IonItemOption, IonListHeader
+  IonItemOptions, IonItemOption, IonListHeader, IonSelect, IonSelectOption
 } from '@ionic/react';
 import {
   useState, useEffect, useRef, useCallback, useMemo
 } from 'react';
 import { throttle } from 'lodash-es';
 import { Preferences } from '@capacitor/preferences';
-import { chatbubbleEllipses, add } from 'ionicons/icons';
+import { chatbubbleEllipses, add, key } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import './Tab1.css';
 import '../i18n';
@@ -37,6 +37,14 @@ interface ChatSession {
   timestamp: number;
 }
 
+interface ApiProvider {
+  id: string;
+  name: string;
+  baseURL: string;
+  apiKey: string;
+  model: string;
+}
+
 const STORAGE_KEY = 'chat_sessions';
 // Remove duplicate API_KEY_STORAGE constant since it's imported from ChatService
 
@@ -53,10 +61,15 @@ const Tab1: React.FC = () => {
     completionTokens?: number;
     totalTokens?: number;
   } | null>(null);
+  // Add state for API providers
+  const [providers, setProviders] = useState<ApiProvider[]>([]);
+  const [activeProviderId, setActiveProviderId] = useState<string>('');
 
   useEffect(() => {
     loadChatSessions();
     loadApiKey();
+    loadProviders();
+    loadActiveProvider();
     
     // Add event listener for API key changes
     const handleApiKeyChange = (event: CustomEvent) => {
@@ -64,20 +77,56 @@ const Tab1: React.FC = () => {
     };
     
     // Add event listener for active provider changes
-    const handleProviderChange = () => {
+    const handleProviderChangeEvent = () => {
       loadApiKey(); // Reload API key when provider changes
+      loadActiveProvider(); // Reload active provider
+      loadProviders(); // Reload providers list
     };
     
     // Add event listeners
     document.addEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
-    document.addEventListener('activeProviderChanged', handleProviderChange as EventListener);
+    document.addEventListener('activeProviderChanged', handleProviderChangeEvent as EventListener);
     
     // Clean up event listeners when component unmounts
     return () => {
       document.removeEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
-      document.removeEventListener('activeProviderChanged', handleProviderChange as EventListener);
+      document.removeEventListener('activeProviderChanged', handleProviderChangeEvent as EventListener);
     };
   }, []);
+
+  // Load providers from ChatService
+  const loadProviders = async () => {
+    try {
+      const loadedProviders = await ChatService.getApiProviders();
+      setProviders(loadedProviders);
+    } catch (error) {
+      console.error('Failed to load API providers:', error);
+    }
+  };
+
+  // Load active provider from ChatService
+  const loadActiveProvider = async () => {
+    try {
+      const providerId = await ChatService.getActiveProviderId();
+      if (providerId) {
+        setActiveProviderId(providerId);
+      }
+    } catch (error) {
+      console.error('Failed to load active provider:', error);
+    }
+  };
+
+  // Handle provider change
+  const handleProviderChange = async (providerId: string) => {
+    try {
+      await ChatService.setActiveProviderId(providerId);
+      setActiveProviderId(providerId);
+      // Reload API key after changing provider
+      await loadApiKey();
+    } catch (error) {
+      console.error('Failed to set active provider:', error);
+    }
+  };
 
   const loadApiKey = async () => {
     const key = await ChatService.getApiKey();
@@ -351,6 +400,26 @@ const Tab1: React.FC = () => {
                 </IonButton>
               </IonMenuToggle>
               <IonTitle>{t('app.title')}</IonTitle>
+              
+              {/* Add provider selector */}
+              <IonItem slot="end" lines="none" className="provider-selector">
+                <IonIcon icon={key} slot="start" />
+                <IonSelect
+                  value={activeProviderId}
+                  onIonChange={(e) => handleProviderChange(e.detail.value)}
+                  interface="popover"
+                  className="provider-select"
+                >
+                  {providers.map((provider) => (
+                    <IonSelectOption key={provider.id} value={provider.id}>
+                      {t(`providers.${provider.id}`) !== `providers.${provider.id}` 
+                        ? t(`providers.${provider.id}`) 
+                        : provider.name}
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
+              </IonItem>
+              
               <IonButton 
                 slot="end" 
                 fill="clear" 

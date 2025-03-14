@@ -37,13 +37,13 @@
   "settings": {
     "title": "设置",
     "apiSettings": "API 设置",
-    "apiProviders": "API 提供商",
-    "activeProvider": "当前提供商",
-    "selectProvider": "选择提供商",
-    "addProvider": "添加提供商",
-    "editProvider": "编辑提供商",
-    "deleteProvider": "删除提供商",
-    "providerName": "提供商名称",
+    "modelConfig": "模型配置",
+    "activeConfig": "当前配置",
+    "selectConfig": "选择配置",
+    "addConfig": "添加配置",
+    "editConfig": "编辑配置",
+    "deleteConfig": "删除配置",
+    "configName": "配置名称",
     "baseUrl": "基础 URL",
     "modelName": "模型名称",
     "apiKey": "API 密钥",
@@ -80,8 +80,6 @@
   },
   "providers": {
     "deepseek": "DeepSeek",
-    "openai": "OpenAI",
-    "openrouter": "OpenRouter",
     "custom": "自定义"
   }
 }

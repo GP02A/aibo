@@ -9,7 +9,6 @@ import {
   IonAlert,
   IonItemGroup,
   IonListHeader,
-  IonItemDivider,
   IonList,
   IonCard,
   IonCardContent,
@@ -25,7 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { key, add, create, trash, save } from 'ionicons/icons';
 import { ChatService } from '../services/ChatService';
 
-interface ApiProvider {
+interface ModelConfiguration {
   id: string;
   name: string;
   baseURL: string;
@@ -35,64 +34,64 @@ interface ApiProvider {
 
 const ApiSettings: React.FC = () => {
   const { t } = useTranslation();
-  const [providers, setProviders] = useState<ApiProvider[]>([]);
-  const [activeProviderId, setActiveProviderId] = useState<string>('');
+  const [configs, setConfigs] = useState<ModelConfiguration[]>([]);
+  const [activeConfigId, setActiveConfigId] = useState<string>('');
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<ApiProvider | null>(null);
+  const [editingConfig, setEditingConfig] = useState<ModelConfiguration | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Load providers and active provider on component mount
+  // Load configurations and active configuration on component mount
   useEffect(() => {
-    loadProviders();
-    loadActiveProvider();
+    loadConfigs();
+    loadActiveConfig();
 
-    // Add event listeners for provider changes
-    const handleProviderChange = () => {
-      loadProviders();
-      loadActiveProvider();
+    // Add event listeners for configuration changes
+    const handleConfigChange = () => {
+      loadConfigs();
+      loadActiveConfig();
     };
 
-    document.addEventListener('activeProviderChanged', handleProviderChange);
-    document.addEventListener('apiKeyChanged', handleProviderChange);
+    document.addEventListener('activeConfigChanged', handleConfigChange);
+    document.addEventListener('apiKeyChanged', handleConfigChange);
 
     return () => {
-      document.removeEventListener('activeProviderChanged', handleProviderChange);
-      document.removeEventListener('apiKeyChanged', handleProviderChange);
+      document.removeEventListener('activeConfigChanged', handleConfigChange);
+      document.removeEventListener('apiKeyChanged', handleConfigChange);
     };
   }, []);
 
-  const loadProviders = async () => {
+  const loadConfigs = async () => {
     try {
-      const loadedProviders = await ChatService.getApiProviders();
-      setProviders(loadedProviders);
+      const loadedConfigs = await ChatService.getModelConfigurations();
+      setConfigs(loadedConfigs);
     } catch (error) {
-      console.error('Failed to load API providers:', error);
-      // Continue with empty providers array rather than crashing
+      console.error('Failed to load model configurations:', error);
+      // Continue with empty configs array rather than crashing
     }
   };
 
-  const loadActiveProvider = async () => {
+  const loadActiveConfig = async () => {
     try {
-      const providerId = await ChatService.getActiveProviderId();
-      if (providerId) {
-        setActiveProviderId(providerId);
+      const configId = await ChatService.getActiveConfigId();
+      if (configId) {
+        setActiveConfigId(configId);
       }
     } catch (error) {
-      console.error('Failed to load active provider:', error);
-      // Default to first provider if available
-      if (providers.length > 0) {
-        setActiveProviderId(providers[0].id);
+      console.error('Failed to load active configuration:', error);
+      // Default to first config if available
+      if (configs.length > 0) {
+        setActiveConfigId(configs[0].id);
       }
     }
   };
 
-  const handleProviderChange = async (providerId: string) => {
+  const handleConfigChange = async (configId: string) => {
     try {
-      await ChatService.setActiveProviderId(providerId);
-      setActiveProviderId(providerId);
+      await ChatService.setActiveConfigId(configId);
+      setActiveConfigId(configId);
     } catch (error) {
-      console.error('Failed to set active provider:', error);
+      console.error('Failed to set active configuration:', error);
     }
   };
 
@@ -100,32 +99,32 @@ const ApiSettings: React.FC = () => {
     try {
       await ChatService.saveApiKey(apiKey);
       
-      // Wait for the save operation to complete before reloading providers
+      // Wait for the save operation to complete before reloading configs
       // Use a longer delay to ensure the data is properly saved
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Reload providers to reflect the updated API key
-      await loadProviders();
+      // Reload configs to reflect the updated API key
+      await loadConfigs();
       
       // Double-check that the API key was saved correctly
-      const providers = await ChatService.getApiProviders();
-      const activeProvider = providers.find(p => p.id === activeProviderId);
+      const configs = await ChatService.getModelConfigurations();
+      const activeConfig = configs.find(p => p.id === activeConfigId);
       
-      if (activeProvider && activeProvider.apiKey !== apiKey) {
+      if (activeConfig && activeConfig.apiKey !== apiKey) {
         console.warn('API key verification failed in component - retrying save');
         // Try saving again
         await ChatService.saveApiKey(apiKey);
         await new Promise(resolve => setTimeout(resolve, 300));
-        await loadProviders();
+        await loadConfigs();
       }
     } catch (error) {
       console.error('Failed to save API key:', error);
     }
   };
 
-  const handleAddProvider = () => {
+  const handleAddConfig = () => {
     setIsEditing(false);
-    setEditingProvider({
+    setEditingConfig({
       id: `custom-${Date.now()}`,
       name: '',
       baseURL: '',
@@ -135,76 +134,77 @@ const ApiSettings: React.FC = () => {
     setShowAddEditModal(true);
   };
 
-  const handleEditProvider = (provider: ApiProvider) => {
+  const handleEditConfig = (config: ModelConfiguration) => {
     setIsEditing(true);
-    setEditingProvider({ ...provider });
+    setEditingConfig({ ...config });
     setShowAddEditModal(true);
   };
 
-  const handleDeleteProvider = (providerId: string) => {
-    // Allow deleting any provider
-    const provider = providers.find(p => p.id === providerId);
-    if (provider) {
-      setEditingProvider(provider);
+  const handleDeleteConfig = (configId: string) => {
+    // Don't allow deleting the default configurations
+    const config = configs.find(p => p.id === configId);
+    if (config && !['deepseek'].includes(config.id)) {
+      setEditingConfig(config);
       setShowDeleteConfirm(true);
     }
   };
 
-  const confirmDeleteProvider = async () => {
-    if (!editingProvider) return;
+  const confirmDeleteConfig = async () => {
+    if (!editingConfig) return;
 
     try {
-      // Filter out the provider to delete
-      const updatedProviders = providers.filter(p => p.id !== editingProvider.id);
-      await ChatService.saveApiProviders(updatedProviders);
+      // Filter out the configuration to delete
+      const updatedConfigs = configs.filter(p => p.id !== editingConfig.id);
+      await ChatService.saveModelConfigurations(updatedConfigs);
 
-      // If the deleted provider was active, switch to another available provider
-      if (activeProviderId === editingProvider.id) {
-        if (updatedProviders.length > 0) {
-          // Select the first available provider
-          const newActiveProviderId = updatedProviders[0].id;
-          await ChatService.setActiveProviderId(newActiveProviderId);
-          setActiveProviderId(newActiveProviderId);
+      // If the deleted configuration was active, switch to another available configuration
+      if (activeConfigId === editingConfig.id) {
+        if (updatedConfigs.length > 0) {
+          // Select the first available configuration from the remaining ones
+          const newActiveConfigId = updatedConfigs[0].id;
+          await ChatService.setActiveConfigId(newActiveConfigId);
+          setActiveConfigId(newActiveConfigId);
         } else {
-          // If no providers left, reset to empty
-          await ChatService.setActiveProviderId('');
-          setActiveProviderId('');
+          // If no configurations left, handle appropriately
+          console.warn('No configurations available after deletion');
+          // Reset activeConfigId since there are no configurations
+          setActiveConfigId('');
         }
       }
 
-      setProviders(updatedProviders);
+      setConfigs(updatedConfigs);
       setShowDeleteConfirm(false);
-      setEditingProvider(null);
+      setEditingConfig(null);
     } catch (error) {
-      console.error('Failed to delete provider:', error);
+      console.error('Failed to delete configuration:', error);
     }
   };
 
-  const saveProvider = async (provider: ApiProvider) => {
+  const saveConfig = async (config: ModelConfiguration) => {
     try {
-      let updatedProviders;
+      let updatedConfigs;
       
       if (isEditing) {
-        // Update existing provider
-        updatedProviders = providers.map(p => 
-          p.id === provider.id ? provider : p
+        // Update existing configuration
+        updatedConfigs = configs.map(p => 
+          p.id === config.id ? config : p
         );
       } else {
-        // Add new provider
-        updatedProviders = [...providers, provider];
+        // Add new configuration
+        updatedConfigs = [...configs, config];
       }
       
-      await ChatService.saveApiProviders(updatedProviders);
-      setProviders(updatedProviders);
+      await ChatService.saveModelConfigurations(updatedConfigs);
+      setConfigs(updatedConfigs);
       setShowAddEditModal(false);
-      setEditingProvider(null);
+      setEditingConfig(null);
     } catch (error) {
-      console.error('Failed to save provider:', error);
+      console.error('Failed to save configuration:', error);
     }
   };
 
-  // Find the active provider
-  const activeProvider = providers.find(p => p.id === activeProviderId);
+  // Find the active configuration
+  const activeConfig = configs.find(p => p.id === activeConfigId);
 
   return (
     <>
@@ -217,30 +217,30 @@ const ApiSettings: React.FC = () => {
         </IonListHeader>
 
         <IonItem>
-          <IonLabel>{t('settings.activeProvider')}</IonLabel>
+          <IonLabel>{t('settings.activeConfig')}</IonLabel>
           <IonSelect
-            value={activeProviderId}
-            onIonChange={(e) => handleProviderChange(e.detail.value)}
+            value={activeConfigId}
+            onIonChange={(e) => handleConfigChange(e.detail.value)}
             interface="popover"
             slot="end"
           >
-            {providers.map((provider) => (
-              <IonSelectOption key={provider.id} value={provider.id}>
-                {t(`providers.${provider.id}`) !== `providers.${provider.id}` 
-                  ? t(`providers.${provider.id}`) 
-                  : provider.name}
+            {configs.map((config) => (
+              <IonSelectOption key={config.id} value={config.id}>
+                {t(`providers.${config.id}`) !== `providers.${config.id}` 
+                  ? t(`providers.${config.id}`) 
+                  : config.name}
               </IonSelectOption>
             ))}
           </IonSelect>
         </IonItem>
 
-        {activeProvider && (
+        {activeConfig && (
           <IonCard className="ion-margin">
             <IonCardHeader>
               <IonCardTitle>
-                {t(`providers.${activeProvider.id}`) !== `providers.${activeProvider.id}` 
-                  ? t(`providers.${activeProvider.id}`) 
-                  : activeProvider.name}
+                {t(`providers.${activeConfig.id}`) !== `providers.${activeConfig.id}` 
+                  ? t(`providers.${activeConfig.id}`) 
+                  : activeConfig.name}
               </IonCardTitle>
             </IonCardHeader>
             <IonCardContent>
@@ -248,8 +248,8 @@ const ApiSettings: React.FC = () => {
                 <IonRow>
                   <IonCol size="12">
                     <IonText>
-                      <p><strong>{t('settings.baseUrl')}:</strong> {activeProvider.baseURL || t('settings.noApiKey')}</p>
-                      <p><strong>{t('settings.modelName')}:</strong> {activeProvider.model || t('settings.noApiKey')}</p>
+                      <p><strong>{t('settings.baseUrl')}:</strong> {activeConfig.baseURL || t('settings.noApiKey')}</p>
+                      <p><strong>{t('settings.modelName')}:</strong> {activeConfig.model || t('settings.noApiKey')}</p>
                     </IonText>
                   </IonCol>
                 </IonRow>
@@ -259,7 +259,7 @@ const ApiSettings: React.FC = () => {
                       <IonLabel position="stacked">{t('settings.apiKey')}</IonLabel>
                       <IonInput
                         type="password"
-                        value={activeProvider.apiKey}
+                        value={activeConfig.apiKey}
                         placeholder={t('settings.enterApiKey')}
                         onIonChange={(e) => handleSaveApiKey(e.detail.value || '')}
                       />
@@ -277,72 +277,74 @@ const ApiSettings: React.FC = () => {
         )}
 
         <IonItem>
-          <IonLabel>{t('settings.apiProviders')}</IonLabel>
+          <IonLabel>{t('settings.modelConfig')}</IonLabel>
           <IonButton
             fill="outline"
             slot="end"
-            onClick={handleAddProvider}
+            onClick={handleAddConfig}
           >
             <IonIcon icon={add} slot="start" />
-            {t('settings.addProvider')}
+            {t('settings.addConfig')}
           </IonButton>
         </IonItem>
 
         <IonList className="ion-margin-start">
-          {providers.map((provider) => (
-            <IonItem key={provider.id}>
+          {configs.map((config) => (
+            <IonItem key={config.id}>
               <IonLabel>
-                {t(`providers.${provider.id}`) !== `providers.${provider.id}` 
-                  ? t(`providers.${provider.id}`) 
-                  : provider.name}
+                {t(`providers.${config.id}`) !== `providers.${config.id}` 
+                  ? t(`providers.${config.id}`) 
+                  : config.name}
               </IonLabel>
               <IonButton
                 fill="clear"
-                onClick={() => handleEditProvider(provider)}
+                onClick={() => handleEditConfig(config)}
               >
                 <IonIcon icon={create} />
               </IonButton>
-              <IonButton
-                fill="clear"
-                color="danger"
-                onClick={() => handleDeleteProvider(provider.id)}
-              >
-                <IonIcon icon={trash} />
-              </IonButton>
+              {!['deepseek'].includes(config.id) && (
+                <IonButton
+                  fill="clear"
+                  color="danger"
+                  onClick={() => handleDeleteConfig(config.id)}
+                >
+                  <IonIcon icon={trash} />
+                </IonButton>
+              )}
             </IonItem>
           ))}
         </IonList>
       </IonItemGroup>
 
-      {/* Add/Edit Provider Modal */}
+      {/* Add/Edit Configuration Modal */}
       <IonAlert
         isOpen={showAddEditModal}
         onDidDismiss={() => setShowAddEditModal(false)}
-        header={isEditing ? t('settings.editProvider') : t('settings.addProvider')}
+        header={isEditing ? t('settings.editConfig') : t('settings.addConfig')}
         inputs={[
           {
             name: 'name',
             type: 'text',
-            placeholder: t('settings.providerName'),
-            value: editingProvider?.name
+            placeholder: t('settings.configName'),
+            value: editingConfig?.name
           },
           {
             name: 'baseURL',
             type: 'text',
             placeholder: t('settings.baseUrl'),
-            value: editingProvider?.baseURL
+            value: editingConfig?.baseURL
           },
           {
             name: 'model',
             type: 'text',
             placeholder: t('settings.modelName'),
-            value: editingProvider?.model
+            value: editingConfig?.model
           },
           {
             name: 'apiKey',
             type: 'password',
             placeholder: t('settings.apiKey'),
-            value: editingProvider?.apiKey
+            value: editingConfig?.apiKey
           }
         ]}
         buttons={[
@@ -353,9 +355,9 @@ const ApiSettings: React.FC = () => {
           {
             text: t('settings.save'),
             handler: (data) => {
-              if (editingProvider) {
-                saveProvider({
-                  ...editingProvider,
+              if (editingConfig) {
+                saveConfig({
+                  ...editingConfig,
                   name: data.name,
                   baseURL: data.baseURL,
                   model: data.model,
@@ -367,11 +369,11 @@ const ApiSettings: React.FC = () => {
         ]}
       />
 
-      {/* Delete Confirmation */}
+      {/* Delete Configuration Confirmation */}
       <IonAlert
         isOpen={showDeleteConfirm}
         onDidDismiss={() => setShowDeleteConfirm(false)}
-        header={t('settings.deleteProvider')}
+        header={t('settings.deleteConfig')}
         message={`${t('settings.confirmClearMessage')}`}
         buttons={[
           {
@@ -380,7 +382,7 @@ const ApiSettings: React.FC = () => {
           },
           {
             text: t('common.confirm'),
-            handler: confirmDeleteProvider
+            handler: confirmDeleteConfig
           }
         ]}
       />

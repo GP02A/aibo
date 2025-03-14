@@ -37,13 +37,13 @@
   "settings": {
     "title": "Settings",
     "apiSettings": "API Settings",
-    "apiProviders": "API Providers",
-    "activeProvider": "Active Provider",
-    "selectProvider": "Select Provider",
-    "addProvider": "Add Provider",
-    "editProvider": "Edit Provider",
-    "deleteProvider": "Delete Provider",
-    "providerName": "Provider Name",
+    "modelConfig": "Model Configurations",
+    "activeConfig": "Active Configuration",
+    "selectConfig": "Select Configuration",
+    "addConfig": "Add Configuration",
+    "editConfig": "Edit Configuration",
+    "deleteConfig": "Delete Configuration",
+    "configName": "Configuration Name",
     "baseUrl": "Base URL",
     "modelName": "Model Name",
     "apiKey": "API Key",
@@ -82,8 +82,6 @@
   },
   "providers": {
     "deepseek": "DeepSeek",
-    "openai": "OpenAI",
-    "openrouter": "OpenRouter",
     "custom": "Custom"
   }
 }

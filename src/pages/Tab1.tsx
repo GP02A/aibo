@@ -37,7 +37,7 @@ interface ChatSession {
   timestamp: number;
 }
 
-interface ApiProvider {
+interface ModelConfiguration {
   id: string;
   name: string;
   baseURL: string;
@@ -61,70 +61,70 @@ const Tab1: React.FC = () => {
     completionTokens?: number;
     totalTokens?: number;
   } | null>(null);
-  // Add state for API providers
-  const [providers, setProviders] = useState<ApiProvider[]>([]);
-  const [activeProviderId, setActiveProviderId] = useState<string>('');
+  // Add state for model configurations
+  const [configs, setConfigs] = useState<ModelConfiguration[]>([]);
+  const [activeConfigId, setActiveConfigId] = useState<string>('');
 
   useEffect(() => {
     loadChatSessions();
     loadApiKey();
-    loadProviders();
-    loadActiveProvider();
+    loadConfigs();
+    loadActiveConfig();
     
     // Add event listener for API key changes
     const handleApiKeyChange = (event: CustomEvent) => {
       setApiKey(event.detail);
     };
     
-    // Add event listener for active provider changes
-    const handleProviderChangeEvent = () => {
-      loadApiKey(); // Reload API key when provider changes
-      loadActiveProvider(); // Reload active provider
-      loadProviders(); // Reload providers list
+    // Add event listener for active configuration changes
+    const handleConfigChangeEvent = () => {
+      loadApiKey(); // Reload API key when configuration changes
+      loadActiveConfig(); // Reload active configuration
+      loadConfigs(); // Reload configurations list
     };
     
     // Add event listeners
     document.addEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
-    document.addEventListener('activeProviderChanged', handleProviderChangeEvent as EventListener);
+    document.addEventListener('activeConfigChanged', handleConfigChangeEvent as EventListener);
     
     // Clean up event listeners when component unmounts
     return () => {
       document.removeEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
-      document.removeEventListener('activeProviderChanged', handleProviderChangeEvent as EventListener);
+      document.removeEventListener('activeConfigChanged', handleConfigChangeEvent as EventListener);
     };
   }, []);
 
-  // Load providers from ChatService
-  const loadProviders = async () => {
+  // Load configurations from ChatService
+  const loadConfigs = async () => {
     try {
-      const loadedProviders = await ChatService.getApiProviders();
-      setProviders(loadedProviders);
+      const loadedConfigs = await ChatService.getModelConfigurations();
+      setConfigs(loadedConfigs);
     } catch (error) {
-      console.error('Failed to load API providers:', error);
+      console.error('Failed to load model configurations:', error);
     }
   };
 
-  // Load active provider from ChatService
-  const loadActiveProvider = async () => {
+  // Load active configuration from ChatService
+  const loadActiveConfig = async () => {
     try {
-      const providerId = await ChatService.getActiveProviderId();
-      if (providerId) {
-        setActiveProviderId(providerId);
+      const configId = await ChatService.getActiveConfigId();
+      if (configId) {
+        setActiveConfigId(configId);
       }
     } catch (error) {
-      console.error('Failed to load active provider:', error);
+      console.error('Failed to load active configuration:', error);
     }
   };
 
-  // Handle provider change
-  const handleProviderChange = async (providerId: string) => {
+  // Handle configuration change
+  const handleConfigChange = async (configId: string) => {
     try {
-      await ChatService.setActiveProviderId(providerId);
-      setActiveProviderId(providerId);
-      // Reload API key after changing provider
+      await ChatService.setActiveConfigId(configId);
+      setActiveConfigId(configId);
+      // Reload API key after changing configuration
       await loadApiKey();
     } catch (error) {
-      console.error('Failed to set active provider:', error);
+      console.error('Failed to set active configuration:', error);
     }
   };
 
@@ -401,20 +401,20 @@ const Tab1: React.FC = () => {
               </IonMenuToggle>
               <IonTitle>{t('app.title')}</IonTitle>
               
-              {/* Add provider selector */}
+              {/* Add configuration selector */}
               <IonItem slot="end" lines="none" className="provider-selector">
                 <IonIcon icon={key} slot="start" />
                 <IonSelect
-                  value={activeProviderId}
-                  onIonChange={(e) => handleProviderChange(e.detail.value)}
+                  value={activeConfigId}
+                  onIonChange={(e) => handleConfigChange(e.detail.value)}
                   interface="popover"
                   className="provider-select"
                 >
-                  {providers.map((provider) => (
-                    <IonSelectOption key={provider.id} value={provider.id}>
-                      {t(`providers.${provider.id}`) !== `providers.${provider.id}` 
-                        ? t(`providers.${provider.id}`) 
-                        : provider.name}
+                  {configs.map((config) => (
+                    <IonSelectOption key={config.id} value={config.id}>
+                      {t(`providers.${config.id}`) !== `providers.${config.id}` 
+                        ? t(`providers.${config.id}`) 
+                        : config.name}
                     </IonSelectOption>
                   ))}
                 </IonSelect>

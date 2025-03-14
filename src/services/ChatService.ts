@@ -110,10 +110,19 @@ export class ChatService {
   static async getActiveProviderId(): Promise<string | null> {
     try {
       const { value } = await Preferences.get({ key: ACTIVE_PROVIDER_STORAGE });
-      return value || 'deepseek'; // Default to deepseek if not set
+      if (value) {
+        return value;
+      }
+      
+      // Check if we have any providers before defaulting
+      const providers = await this.getApiProviders();
+      if (providers.length > 0) {
+        return providers[0].id; // Default to first available provider
+      }
+      return null; // Return null if no providers exist
     } catch (error) {
       console.error('Failed to load active provider:', error);
-      return 'deepseek';
+      return null;
     }
   }
 

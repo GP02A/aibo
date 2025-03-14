@@ -142,9 +142,9 @@ const ApiSettings: React.FC = () => {
   };
 
   const handleDeleteProvider = (providerId: string) => {
-    // Don't allow deleting the default providers
+    // Allow deleting any provider
     const provider = providers.find(p => p.id === providerId);
-    if (provider && !['deepseek', 'openai', 'openrouter', 'custom'].includes(provider.id)) {
+    if (provider) {
       setEditingProvider(provider);
       setShowDeleteConfirm(true);
     }
@@ -158,10 +158,18 @@ const ApiSettings: React.FC = () => {
       const updatedProviders = providers.filter(p => p.id !== editingProvider.id);
       await ChatService.saveApiProviders(updatedProviders);
 
-      // If the deleted provider was active, switch to deepseek
+      // If the deleted provider was active, switch to another available provider
       if (activeProviderId === editingProvider.id) {
-        await ChatService.setActiveProviderId('deepseek');
-        setActiveProviderId('deepseek');
+        if (updatedProviders.length > 0) {
+          // Select the first available provider
+          const newActiveProviderId = updatedProviders[0].id;
+          await ChatService.setActiveProviderId(newActiveProviderId);
+          setActiveProviderId(newActiveProviderId);
+        } else {
+          // If no providers left, reset to empty
+          await ChatService.setActiveProviderId('');
+          setActiveProviderId('');
+        }
       }
 
       setProviders(updatedProviders);
@@ -294,15 +302,13 @@ const ApiSettings: React.FC = () => {
               >
                 <IonIcon icon={create} />
               </IonButton>
-              {!['deepseek', 'openai', 'openrouter', 'custom'].includes(provider.id) && (
-                <IonButton
-                  fill="clear"
-                  color="danger"
-                  onClick={() => handleDeleteProvider(provider.id)}
-                >
-                  <IonIcon icon={trash} />
-                </IonButton>
-              )}
+              <IonButton
+                fill="clear"
+                color="danger"
+                onClick={() => handleDeleteProvider(provider.id)}
+              >
+                <IonIcon icon={trash} />
+              </IonButton>
             </IonItem>
           ))}
         </IonList>

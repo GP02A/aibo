@@ -3,8 +3,7 @@
 import {
   IonContent, IonHeader, IonPage, IonTitle, IonToolbar,
   IonList, IonItem, IonButton, IonFooter, IonSplitPane,
-  IonMenu, IonMenuToggle, IonIcon, IonLabel, IonItemSliding,
-  IonItemOptions, IonItemOption, IonListHeader, IonSelect, IonSelectOption
+  IonMenu, IonMenuToggle, IonIcon, IonText, IonSelect, IonSelectOption
 } from '@ionic/react';
 import {
   useState, useEffect, useRef, useCallback, useMemo
@@ -83,14 +82,22 @@ const Tab1: React.FC = () => {
       loadConfigs(); // Reload configurations list
     };
     
+    // Add event listener for model configurations changes
+    const handleModelConfigurationsChange = (event: CustomEvent) => {
+      setConfigs(event.detail); // Update configs directly from the event data
+      loadActiveConfig(); // Make sure active config is still valid
+    };
+    
     // Add event listeners
     document.addEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
     document.addEventListener('activeConfigChanged', handleConfigChangeEvent as EventListener);
+    document.addEventListener('modelConfigurationsChanged', handleModelConfigurationsChange as EventListener);
     
     // Clean up event listeners when component unmounts
     return () => {
       document.removeEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
       document.removeEventListener('activeConfigChanged', handleConfigChangeEvent as EventListener);
+      document.removeEventListener('modelConfigurationsChanged', handleModelConfigurationsChange as EventListener);
     };
   }, []);
 
@@ -129,9 +136,9 @@ const Tab1: React.FC = () => {
   };
 
   const loadApiKey = async () => {
-    const key = await ChatService.getApiKey();
-    if (key) {
-      setApiKey(key);
+    const activeConfig = await ChatService.getActiveConfig();
+    if (activeConfig?.apiKey) {
+      setApiKey(activeConfig.apiKey);
     }
   };
 
@@ -261,8 +268,9 @@ const Tab1: React.FC = () => {
     // Reset token usage for new message
     setCurrentTokenUsage(null);
 
-    // Get the latest API key directly from the service
-    const currentApiKey = await ChatService.getApiKey();
+    // Get the latest API key from the active configuration
+    const activeConfig = await ChatService.getActiveConfig();
+    const currentApiKey = activeConfig?.apiKey || null;
     
     // Check if API key is available
     if (!currentApiKey) {
@@ -402,22 +410,28 @@ const Tab1: React.FC = () => {
               <IonTitle>{t('app.title')}</IonTitle>
               
               {/* Add configuration selector */}
-              <IonItem slot="end" lines="none" className="provider-selector">
+              <IonItem slot="end" lines="none" className="config-selector">
                 <IonIcon icon={key} slot="start" />
-                <IonSelect
-                  value={activeConfigId}
-                  onIonChange={(e) => handleConfigChange(e.detail.value)}
-                  interface="popover"
-                  className="provider-select"
-                >
-                  {configs.map((config) => (
-                    <IonSelectOption key={config.id} value={config.id}>
-                      {t(`providers.${config.id}`) !== `providers.${config.id}` 
-                        ? t(`providers.${config.id}`) 
-                        : config.name}
+                {configs.length > 0 ? (
+                  <IonSelect
+                    value={activeConfigId}
+                    onIonChange={(e) => handleConfigChange(e.detail.value)}
+                    interface="popover"
+                    className="config-select"
+                  >
+                    {configs.map((config) => (
+                      <IonSelectOption key={config.id} value={config.id}>
+                        {t(`providers.${config.id}`) !== `providers.${config.id}` 
+                          ? t(`providers.${config.id}`) 
+                          : config.name}
                     </IonSelectOption>
                   ))}
-                </IonSelect>
+                  </IonSelect>
+                ) : (
+                  <IonText color="medium">
+                    {t('settings.noConfig')} - {t('settings.addConfig')}
+                  </IonText>
+                )}
               </IonItem>
               
               <IonButton 

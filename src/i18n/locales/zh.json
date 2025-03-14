@@ -52,8 +52,11 @@
     "deleteApiKey": "删除",
     "editApiKey": "编辑",
     "noApiKey": "未设置 API 密钥",
+    "noConfig": "未选择配置",
+    "noConfigs": "没有可用的配置",
     "manageApiKey": "管理 API 密钥",
     "apiKeyDescription": "您的 API 密钥安全地存储在您的设备上，用于与所选 AI 服务通信。",
+    "nameRequired": "配置名称不能为空。请为您的配置输入一个名称。",
     "save": "保存",
     "appearance": "外观",
     "themeMode": "主题模式",
@@ -76,9 +79,11 @@
   },
   "common": {
     "cancel": "取消",
-    "confirm": "确认"
+    "confirm": "确认",
+    "error": "错误",
+    "ok": "确定"
   },
-  "providers": {
+  "configs": {
     "deepseek": "DeepSeek",
     "custom": "自定义"
   }

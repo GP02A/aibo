@@ -35,13 +35,13 @@
 
 
 /* Provider selector styling */
-.provider-selector {
+.config-selector {
   --padding-start: 0;
   --inner-padding-end: 0;
   --background: transparent;
 }
 
-.provider-select {
+.config-select {
   min-width: 120px;
   max-width: 150px;
   --padding-start: 4px;

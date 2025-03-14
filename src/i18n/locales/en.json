@@ -52,8 +52,11 @@
     "deleteApiKey": "Delete",
     "editApiKey": "Edit",
     "noApiKey": "No API key set",
+    "noConfig": "No configuration selected",
+    "noConfigs": "No configurations available",
     "manageApiKey": "Manage API Key",
     "apiKeyDescription": "Your API key is stored securely on your device and is used to communicate with the selected AI service.",
+    "nameRequired": "Configuration name is required and cannot be empty. Please enter a name for your configuration.",
     "save": "Save",
     "appearance": "Appearance",
     "themeMode": "Theme Mode",
@@ -78,9 +81,11 @@
   },
   "common": {
     "cancel": "Cancel",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "error": "Error",
+    "ok": "OK"
   },
-  "providers": {
+  "configs": {
     "deepseek": "DeepSeek",
     "custom": "Custom"
   }

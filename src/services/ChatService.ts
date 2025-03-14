@@ -19,13 +19,11 @@ interface ModelConfiguration {
   model: string;
 }
 
-const MODEL_CONFIGURATIONS_STORAGE = 'api_providers'; // Keep the same storage key for backward compatibility
-const ACTIVE_CONFIG_STORAGE = 'active_provider'; // Keep the same storage key for backward compatibility
-// Keep the old key for backward compatibility
-const LEGACY_API_KEY_STORAGE = 'deepseek_api_key';
+const MODEL_CONFIGURATIONS_STORAGE = 'api_configs';
+const ACTIVE_CONFIG_STORAGE = 'active_config';
 
 // Default configuration
-const DEFAULT_PROVIDERS = [
+const DEFAULT_CONFIGS = [
   {
     id: 'deepseek',
     name: 'DeepSeek',
@@ -43,47 +41,53 @@ export class ChatService {
         return JSON.parse(value);
       }
       
-      // If no providers are stored, return default providers with empty API keys
-      return DEFAULT_PROVIDERS.map(provider => ({
-        ...provider,
+      // If no configs are stored, return default configs with empty API keys
+      return DEFAULT_CONFIGS.map(config => ({
+        ...config,
         apiKey: ''
       }));
     } catch (error) {
-      console.error('Failed to load API providers:', error);
-      // Return default providers on error
-      return DEFAULT_PROVIDERS.map(provider => ({
-        ...provider,
+      console.error('Failed to load API configs:', error);
+      // Return default configs on error
+      return DEFAULT_CONFIGS.map(config => ({
+        ...config,
         apiKey: ''
       }));
     }
   }
 
   // Save all model configurations
-  static async saveModelConfigurations(providers: ModelConfiguration[]): Promise<void> {
+  static async saveModelConfigurations(configs: ModelConfiguration[]): Promise<void> {
     try {
-      // Save the providers to storage
+      // Save the configs to storage
       await Preferences.set({
         key: MODEL_CONFIGURATIONS_STORAGE,
-        value: JSON.stringify(providers),
+        value: JSON.stringify(configs),
       });
       
-      // Add a longer delay to ensure the data is properly saved
+      // Add a delay to ensure the data is properly saved
       // before any other operations that might depend on this data
       await new Promise(resolve => setTimeout(resolve, 150));
       
       // Verify the data was saved correctly
       const { value } = await Preferences.get({ key: MODEL_CONFIGURATIONS_STORAGE });
       if (!value) {
-        console.warn('Failed to verify API providers were saved - no value returned');
+        console.warn('Failed to verify API configs were saved - no value returned');
         // Try saving again
         await Preferences.set({
           key: MODEL_CONFIGURATIONS_STORAGE,
-          value: JSON.stringify(providers),
+          value: JSON.stringify(configs),
         });
         await new Promise(resolve => setTimeout(resolve, 200));
       }
+      
+      // Dispatch event to notify components that configurations have changed
+      // Use setTimeout to ensure the event is dispatched after the current execution context
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('modelConfigurationsChanged', { detail: configs }));
+      }, 0);
     } catch (error) {
-      console.error('Failed to save API providers:', error);
+      console.error('Failed to save API configs:', error);
       throw error;
     }
   }
@@ -92,7 +96,11 @@ export class ChatService {
   static async getActiveConfigId(): Promise<string | null> {
     try {
       const { value } = await Preferences.get({ key: ACTIVE_CONFIG_STORAGE });
-      return value || 'deepseek'; // Default to deepseek if not set
+      if (value) {
+        return value;
+      }
+      
+      return 'deepseek'; // Default to deepseek if not set
     } catch (error) {
       console.error('Failed to load active configuration:', error);
       return 'deepseek';
@@ -106,6 +114,7 @@ export class ChatService {
         key: ACTIVE_CONFIG_STORAGE,
         value: configId,
       });
+      
       // Dispatch event for components to update
       // Use setTimeout to ensure the event is dispatched after the current execution context
       setTimeout(() => {
@@ -125,47 +134,14 @@ export class ChatService {
       
       // Find the active configuration
       const activeConfig = configs.find(p => p.id === configId);
-      
-      // If no active configuration found, try to migrate from legacy API key
-      if (!activeConfig || !activeConfig.apiKey) {
-        return await this.migrateLegacyApiKey(configs);
-      }
-      
-      return activeConfig;
+      return activeConfig || null;
     } catch (error) {
       console.error('Failed to get active configuration:', error);
       return null;
     }
   }
 
-  // For backward compatibility: migrate from the old API key storage
-  static async migrateLegacyApiKey(configs: ModelConfiguration[]): Promise<ModelConfiguration | null> {
-    try {
-      const { value } = await Preferences.get({ key: LEGACY_API_KEY_STORAGE });
-      if (value) {
-        // Update the DeepSeek configuration with the legacy API key
-        const updatedConfigs = configs.map(config => {
-          if (config.id === 'deepseek') {
-            return { ...config, apiKey: value };
-          }
-          return config;
-        });
-        
-        // Save the updated configurations
-        await this.saveModelConfigurations(updatedConfigs);
-        
-        // Set DeepSeek as the active configuration
-        await this.setActiveConfigId('deepseek');
-        
-        // Return the updated DeepSeek configuration
-        return updatedConfigs.find(p => p.id === 'deepseek') || null;
-      }
-      return null;
-    } catch (error) {
-      console.error('Failed to migrate legacy API key:', error);
-      return null;
-    }
-  }
+
 
   // For backward compatibility: get the API key from the old storage
   static async getApiKey(): Promise<string | null> {

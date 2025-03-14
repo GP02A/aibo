@@ -21,7 +21,7 @@ import {
 } from '@ionic/react';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { key, add, create, trash, save } from 'ionicons/icons';
+import { key, add, create, trash, eyeOutline, eyeOffOutline } from 'ionicons/icons';
 import { ChatService } from '../services/ChatService';
 
 interface ModelConfiguration {
@@ -38,8 +38,11 @@ const ApiSettings: React.FC = () => {
   const [activeConfigId, setActiveConfigId] = useState<string>('');
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showValidationAlert, setShowValidationAlert] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ModelConfiguration | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Load configurations and active configuration on component mount
   useEffect(() => {
@@ -95,32 +98,6 @@ const ApiSettings: React.FC = () => {
     }
   };
 
-  const handleSaveApiKey = async (apiKey: string) => {
-    try {
-      await ChatService.saveApiKey(apiKey);
-      
-      // Wait for the save operation to complete before reloading configs
-      // Use a longer delay to ensure the data is properly saved
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Reload configs to reflect the updated API key
-      await loadConfigs();
-      
-      // Double-check that the API key was saved correctly
-      const configs = await ChatService.getModelConfigurations();
-      const activeConfig = configs.find(p => p.id === activeConfigId);
-      
-      if (activeConfig && activeConfig.apiKey !== apiKey) {
-        console.warn('API key verification failed in component - retrying save');
-        // Try saving again
-        await ChatService.saveApiKey(apiKey);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        await loadConfigs();
-      }
-    } catch (error) {
-      console.error('Failed to save API key:', error);
-    }
-  };
 
   const handleAddConfig = () => {
     setIsEditing(false);
@@ -141,9 +118,9 @@ const ApiSettings: React.FC = () => {
   };
 
   const handleDeleteConfig = (configId: string) => {
-    // Don't allow deleting the default configurations
+    // Allow deleting any configuration
     const config = configs.find(p => p.id === configId);
-    if (config && !['deepseek'].includes(config.id)) {
+    if (config) {
       setEditingConfig(config);
       setShowDeleteConfirm(true);
     }
@@ -182,6 +159,14 @@ const ApiSettings: React.FC = () => {
 
   const saveConfig = async (config: ModelConfiguration) => {
     try {
+      // Validate that name is not empty
+      if (!config.name.trim()) {
+        // Show validation alert instead of browser alert
+        setValidationMessage(t('settings.nameRequired'));
+        setShowValidationAlert(true);
+        return;
+      }
+      
       let updatedConfigs;
       
       if (isEditing) {
@@ -196,6 +181,14 @@ const ApiSettings: React.FC = () => {
       
       await ChatService.saveModelConfigurations(updatedConfigs);
       setConfigs(updatedConfigs);
+      
+      // If there's no active configuration or we're adding the first configuration,
+      // automatically set the new configuration as active
+      if (!activeConfigId || activeConfigId === '' || configs.length === 0) {
+        await ChatService.setActiveConfigId(config.id);
+        setActiveConfigId(config.id);
+      }
+      
       setShowAddEditModal(false);
       setEditingConfig(null);
     } catch (error) {
@@ -218,28 +211,34 @@ const ApiSettings: React.FC = () => {
 
         <IonItem>
           <IonLabel>{t('settings.activeConfig')}</IonLabel>
-          <IonSelect
-            value={activeConfigId}
-            onIonChange={(e) => handleConfigChange(e.detail.value)}
-            interface="popover"
-            slot="end"
-          >
-            {configs.map((config) => (
-              <IonSelectOption key={config.id} value={config.id}>
-                {t(`providers.${config.id}`) !== `providers.${config.id}` 
-                  ? t(`providers.${config.id}`) 
-                  : config.name}
-              </IonSelectOption>
-            ))}
-          </IonSelect>
+          {configs.length > 0 ? (
+            <IonSelect
+              value={activeConfigId}
+              onIonChange={(e) => handleConfigChange(e.detail.value)}
+              interface="popover"
+              slot="end"
+            >
+              {configs.map((config) => (
+                <IonSelectOption key={config.id} value={config.id}>
+                  {t(`configs.${config.id}`) !== `configs.${config.id}` 
+                    ? t(`configs.${config.id}`) 
+                    : config.name}
+                </IonSelectOption>
+              ))}
+            </IonSelect>
+          ) : (
+            <IonText color="medium" slot="end">
+              {t('settings.noConfig')} - {t('settings.addConfig')}
+            </IonText>
+          )}
         </IonItem>
 
         {activeConfig && (
           <IonCard className="ion-margin">
             <IonCardHeader>
               <IonCardTitle>
-                {t(`providers.${activeConfig.id}`) !== `providers.${activeConfig.id}` 
-                  ? t(`providers.${activeConfig.id}`) 
+                {t(`configs.${activeConfig.id}`) !== `configs.${activeConfig.id}` 
+                  ? t(`configs.${activeConfig.id}`) 
                   : activeConfig.name}
               </IonCardTitle>
             </IonCardHeader>
@@ -257,12 +256,30 @@ const ApiSettings: React.FC = () => {
                   <IonCol size="12">
                     <IonItem lines="none">
                       <IonLabel position="stacked">{t('settings.apiKey')}</IonLabel>
-                      <IonInput
-                        type="password"
-                        value={activeConfig.apiKey}
-                        placeholder={t('settings.enterApiKey')}
-                        onIonChange={(e) => handleSaveApiKey(e.detail.value || '')}
-                      />
+                      <div className="ion-padding-top" style={{ display: 'flex', alignItems: 'center' }}>
+                        <div style={{ flex: 1, fontFamily: 'monospace' }}>
+                          {showApiKey 
+                            ? activeConfig.apiKey || t('settings.noApiKey')
+                            : activeConfig.apiKey 
+                              ? '•'.repeat(Math.min(activeConfig.apiKey.length, 20))
+                              : t('settings.noApiKey')}
+                        </div>
+                        <IonButton
+                          fill="clear"
+                          size="small"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                        >
+                          <IonIcon icon={showApiKey ? eyeOffOutline : eyeOutline} />
+                        </IonButton>
+                        <IonButton
+                          fill="outline"
+                          size="small"
+                          onClick={() => handleEditConfig(activeConfig)}
+                        >
+                          <IonIcon icon={create} slot="start" />
+                          {t('settings.editApiKey')}
+                        </IonButton>
+                      </div>
                     </IonItem>
                     <IonText className="ion-padding-start">
                       <p className="ion-text-wrap">
@@ -292,8 +309,8 @@ const ApiSettings: React.FC = () => {
           {configs.map((config) => (
             <IonItem key={config.id}>
               <IonLabel>
-                {t(`providers.${config.id}`) !== `providers.${config.id}` 
-                  ? t(`providers.${config.id}`) 
+                {t(`configs.${config.id}`) !== `configs.${config.id}` 
+                  ? t(`configs.${config.id}`) 
                   : config.name}
               </IonLabel>
               <IonButton
@@ -302,15 +319,13 @@ const ApiSettings: React.FC = () => {
               >
                 <IonIcon icon={create} />
               </IonButton>
-              {!['deepseek'].includes(config.id) && (
-                <IonButton
-                  fill="clear"
-                  color="danger"
-                  onClick={() => handleDeleteConfig(config.id)}
-                >
-                  <IonIcon icon={trash} />
-                </IonButton>
-              )}
+              <IonButton
+                fill="clear"
+                color="danger"
+                onClick={() => handleDeleteConfig(config.id)}
+              >
+                <IonIcon icon={trash} />
+              </IonButton>
             </IonItem>
           ))}
         </IonList>
@@ -325,8 +340,9 @@ const ApiSettings: React.FC = () => {
           {
             name: 'name',
             type: 'text',
-            placeholder: t('settings.configName'),
-            value: editingConfig?.name
+            placeholder: t('settings.configName') + ' *',
+            value: editingConfig?.name,
+            label: t('settings.configName') + ' *'
           },
           {
             name: 'baseURL',
@@ -383,6 +399,20 @@ const ApiSettings: React.FC = () => {
           {
             text: t('common.confirm'),
             handler: confirmDeleteConfig
+          }
+        ]}
+      />
+
+      {/* Validation Alert */}
+      <IonAlert
+        isOpen={showValidationAlert}
+        onDidDismiss={() => setShowValidationAlert(false)}
+        header={t('common.error') || 'Error'}
+        message={validationMessage}
+        buttons={[
+          {
+            text: t('common.ok') || 'OK',
+            role: 'cancel'
           }
         ]}
       />

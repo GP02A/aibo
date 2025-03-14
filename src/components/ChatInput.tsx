@@ -62,7 +62,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             });
           });
         } catch (error) {
-          console.warn('Keyboard plugin error:', error);
+          // Keyboard plugin error occurred
           // Continue without keyboard adjustments if plugin fails
         }
       };
@@ -71,9 +71,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
       
       // Clean up event listeners when component unmounts
       return () => {
-        Keyboard.removeAllListeners().catch(err => 
-          console.warn('Error removing keyboard listeners:', err)
-        );
+        Keyboard.removeAllListeners().catch(err => {
+          console.error('Error removing keyboard listeners:', err);
+        });
       };
     } else {
       // Web implementation using DOM events

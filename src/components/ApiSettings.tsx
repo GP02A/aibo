@@ -143,7 +143,7 @@ const ApiSettings: React.FC = () => {
           setActiveConfigId(newActiveConfigId);
         } else {
           // If no configurations left, handle appropriately
-          console.warn('No configurations available after deletion');
+          // No configurations available after deletion
           // Reset activeConfigId since there are no configurations
           setActiveConfigId('');
         }

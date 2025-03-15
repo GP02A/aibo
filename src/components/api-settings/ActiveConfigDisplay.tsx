@@ -45,6 +45,11 @@ const ActiveConfigDisplay: React.FC<ActiveConfigDisplayProps> = ({
               <IonText>
                 <p><strong>{t('settings.baseUrl')}:</strong> {activeConfig.baseURL || t('settings.noApiKey')}</p>
                 <p><strong>{t('settings.modelName')}:</strong> {activeConfig.model || t('settings.noApiKey')}</p>
+                {activeConfig.showAdvancedConfig && (
+                  <p>
+                    <strong>{t('settings.advancedConfig')}:</strong> {t('common.enabled')}
+                  </p>
+                )}
               </IonText>
             </IonCol>
           </IonRow>

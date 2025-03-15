@@ -11,302 +11,247 @@ interface Message {
   };
 }
 
-interface ModelConfiguration {
-  id: string;
-  name: string;
-  baseURL: string;
-  apiKey: string;
-  model: string;
-}
+// Import the ExtendedModelConfiguration interface from types
+import { ModelConfiguration } from '../components/api-settings/types';
 
-const MODEL_CONFIGURATIONS_STORAGE = 'api_configs';
-const ACTIVE_CONFIG_STORAGE = 'active_config';
+// Storage keys
+const MODEL_CONFIGS_STORAGE = 'model_configurations';
+const ACTIVE_CONFIG_ID = 'active_config_id';
 
-// Default configuration
-const DEFAULT_CONFIGS = [
+// Default configurations for different providers
+const DEFAULT_CONFIGURATIONS: ModelConfiguration[] = [
   {
     id: 'deepseek',
     name: 'DeepSeek',
     baseURL: 'https://api.deepseek.com/v1',
-    model: 'deepseek-chat'
+    apiKey: '',
+    model: 'deepseek-chat',
+    advancedConfig: {
+      temperature: 1,
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+      stream: true,
+      max_tokens: 2048
+    },
+    showAdvancedConfig: false
   }
 ];
 
 export class ChatService {
-  // Get all available model configurations
+  // Get all model configurations
   static async getModelConfigurations(): Promise<ModelConfiguration[]> {
     try {
-      const { value } = await Preferences.get({ key: MODEL_CONFIGURATIONS_STORAGE });
+      const { value } = await Preferences.get({ key: MODEL_CONFIGS_STORAGE });
       if (value) {
         return JSON.parse(value);
       }
-      
-      // If no configs are stored, return default configs with empty API keys
-      return DEFAULT_CONFIGS.map(config => ({
-        ...config,
-        apiKey: ''
-      }));
+      // Return default configurations if none exist
+      await this.saveModelConfigurations(DEFAULT_CONFIGURATIONS);
+      return DEFAULT_CONFIGURATIONS;
     } catch (error) {
-      console.error('Failed to load API configs:', error);
-      // Return default configs on error
-      return DEFAULT_CONFIGS.map(config => ({
-        ...config,
-        apiKey: ''
-      }));
+      console.error('Failed to get model configurations:', error);
+      return DEFAULT_CONFIGURATIONS;
     }
   }
 
-  // Save all model configurations
+  // Save model configurations
   static async saveModelConfigurations(configs: ModelConfiguration[]): Promise<void> {
     try {
-      // Save the configs to storage
       await Preferences.set({
-        key: MODEL_CONFIGURATIONS_STORAGE,
+        key: MODEL_CONFIGS_STORAGE,
         value: JSON.stringify(configs),
       });
       
-      // Add a delay to ensure the data is properly saved
-      // before any other operations that might depend on this data
-      await new Promise(resolve => setTimeout(resolve, 150));
-      
-      // Verify the data was saved correctly
-      const { value } = await Preferences.get({ key: MODEL_CONFIGURATIONS_STORAGE });
-      if (!value) {
-        console.warn('Failed to verify API configs were saved - no value returned');
-        // Try saving again
-        await Preferences.set({
-          key: MODEL_CONFIGURATIONS_STORAGE,
-          value: JSON.stringify(configs),
-        });
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      
-      // Dispatch event to notify components that configurations have changed
-      // Use setTimeout to ensure the event is dispatched after the current execution context
-      setTimeout(() => {
-        document.dispatchEvent(new CustomEvent('modelConfigurationsChanged', { detail: configs }));
-      }, 0);
+      // Dispatch event to notify components of configuration changes
+      document.dispatchEvent(new CustomEvent('modelConfigurationsChanged', {
+        detail: configs
+      }));
     } catch (error) {
-      console.error('Failed to save API configs:', error);
+      console.error('Failed to save model configurations:', error);
       throw error;
     }
   }
 
-  // Get the active configuration ID
-  static async getActiveConfigId(): Promise<string | null> {
+  // Get active configuration ID
+  static async getActiveConfigId(): Promise<string> {
     try {
-      const { value } = await Preferences.get({ key: ACTIVE_CONFIG_STORAGE });
-      if (value) {
-        return value;
-      }
-      
-      return 'deepseek'; // Default to deepseek if not set
+      const { value } = await Preferences.get({ key: ACTIVE_CONFIG_ID });
+      return value || '';
     } catch (error) {
-      console.error('Failed to load active configuration:', error);
-      return 'deepseek';
+      console.error('Failed to get active configuration ID:', error);
+      return '';
     }
   }
 
-  // Set the active configuration ID
+  // Set active configuration ID
   static async setActiveConfigId(configId: string): Promise<void> {
     try {
       await Preferences.set({
-        key: ACTIVE_CONFIG_STORAGE,
+        key: ACTIVE_CONFIG_ID,
         value: configId,
       });
       
-      // Dispatch event for components to update
-      // Use setTimeout to ensure the event is dispatched after the current execution context
-      setTimeout(() => {
-        document.dispatchEvent(new CustomEvent('activeConfigChanged', { detail: configId }));
-      }, 0);
+      // Dispatch event to notify components of active configuration change
+      document.dispatchEvent(new CustomEvent('activeConfigChanged', {
+        detail: configId
+      }));
     } catch (error) {
-      console.error('Failed to save active configuration:', error);
+      console.error('Failed to set active configuration ID:', error);
       throw error;
     }
   }
 
-  // Get the active configuration
+  // Get active configuration
   static async getActiveConfig(): Promise<ModelConfiguration | null> {
     try {
       const configId = await this.getActiveConfigId();
-      const configs = await this.getModelConfigurations();
+      if (!configId) return null;
       
-      // Find the active configuration
-      const activeConfig = configs.find(p => p.id === configId);
-      return activeConfig || null;
+      const configs = await this.getModelConfigurations();
+      return configs.find(config => config.id === configId) || null;
     } catch (error) {
       console.error('Failed to get active configuration:', error);
       return null;
     }
   }
 
-
-
-  // For backward compatibility: get the API key from the old storage
-  static async getApiKey(): Promise<string | null> {
-    try {
-      const activeConfig = await this.getActiveConfig();
-      return activeConfig?.apiKey || null;
-    } catch (error) {
-      console.error('Failed to load API key:', error);
-      return null;
-    }
-  }
-
-  // For backward compatibility: save the API key to the active configuration
-  static async saveApiKey(apiKey: string): Promise<void> {
-    try {
-      const activeConfigId = await this.getActiveConfigId();
-      const configs = await this.getModelConfigurations();
-      
-      // Update the active configuration with the new API key
-      const updatedConfigs = configs.map(config => {
-        if (config.id === activeConfigId) {
-          return { ...config, apiKey };
-        }
-        return config;
-      });
-      
-      // Save the updated configurations
-      await this.saveModelConfigurations(updatedConfigs);
-      
-      // Verify the API key was properly saved by reading it back
-      const verifiedConfigs = await this.getModelConfigurations();
-      const verifiedConfig = verifiedConfigs.find(p => p.id === activeConfigId);
-      
-      if (verifiedConfig && verifiedConfig.apiKey === apiKey) {
-        // Only dispatch the event if the API key was successfully saved
-        // Use setTimeout to ensure the event is dispatched after the current execution context
-        setTimeout(() => {
-          document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
-        }, 0);
-      } else {
-        console.warn('API key verification failed - saved value does not match');
-        // Try saving again with a longer delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await this.saveModelConfigurations(updatedConfigs);
-        
-        // Dispatch event after the second attempt
-        setTimeout(() => {
-          document.dispatchEvent(new CustomEvent('apiKeyChanged', { detail: apiKey }));
-        }, 0);
-      }
-    } catch (error) {
-      console.error('Failed to save API key:', error);
-      throw error;
-    }
-  }
-
+  // Send chat request to the API
   static async sendChatRequest(
-    apiKey: string, 
-    messages: Message[], 
+    apiKey: string,
+    messages: Message[],
     abortSignal: AbortSignal,
-    onChunk: (content: string, tokenUsage?: any) => void,
+    onUpdate: (content: string, tokenUsage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number }) => void,
     onError: (errorType: string, errorMessage: string) => void
   ): Promise<void> {
     try {
-      if (!apiKey) {
-        onError('invalid_api_key', 'API key is missing');
-        return;
-      }
-
-      // Get the active configuration
+      // Get active configuration
       const activeConfig = await this.getActiveConfig();
       if (!activeConfig) {
-        onError('invalid_config', 'No active configuration configured');
+        onError('config_error', 'No active configuration found');
         return;
       }
 
-      // Create OpenAI client with configuration-specific settings
+      // Validate API key
+      if (!apiKey) {
+        onError('invalid_api_key', 'API key is required');
+        return;
+      }
+
+      // Create OpenAI client
       const openai = new OpenAI({
         apiKey: apiKey,
-        baseURL: activeConfig.baseURL,
-        dangerouslyAllowBrowser: true // Allow usage in browser
+        baseURL: activeConfig.baseURL || undefined,
+        dangerouslyAllowBrowser: true // Allow browser usage
       });
 
-      // Format messages for the API
+      // Format messages for OpenAI API
       const formattedMessages = messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }));
 
-      // Create streaming completion
-      const stream = await openai.chat.completions.create({
-        model: activeConfig.model,
-        messages: formattedMessages,
-        stream: true
-      }, { signal: abortSignal });
+      // Get advanced configuration options
+      const advancedConfig = activeConfig.advancedConfig || {};
+      const useStream = advancedConfig.stream === true;
 
-      let accumulatedContent = '';
-      let tokenUsage = {
-        promptTokens: undefined,
-        completionTokens: undefined,
-        totalTokens: undefined
-      };
+      if (useStream) {
+        // Create chat completion with streaming
+        const stream = await openai.chat.completions.create({
+          model: activeConfig.model,
+          messages: formattedMessages,
+          stream: true,
+          temperature: advancedConfig.temperature,
+          max_tokens: advancedConfig.max_tokens,
+          top_p: advancedConfig.top_p,
+          frequency_penalty: advancedConfig.frequency_penalty,
+          presence_penalty: advancedConfig.presence_penalty,
+          ...(advancedConfig.stop && { stop: advancedConfig.stop }),
+          ...(advancedConfig.logit_bias && { logit_bias: advancedConfig.logit_bias }),
+          ...(advancedConfig.user && { user: advancedConfig.user }),
+        }, {
+          signal: abortSignal
+        });
 
-      // Process the stream
-      for await (const chunk of stream) {
-        // Extract content from the chunk
-        const contentDelta = chunk.choices[0]?.delta?.content || '';
+        let accumulatedContent = '';
+        let tokenUsage = {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0
+        };
+
+        // Process streaming response
+        for await (const chunk of stream) {
+          // Check if request was aborted
+          if (abortSignal.aborted) {
+            break;
+          }
+
+          // Get content delta
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            accumulatedContent += content;
+            onUpdate(accumulatedContent, tokenUsage);
+          }
+
+          // Update token usage if available
+          if (chunk.usage) {
+            tokenUsage = {
+              promptTokens: chunk.usage.prompt_tokens,
+              completionTokens: chunk.usage.completion_tokens,
+              totalTokens: chunk.usage.total_tokens
+            };
+          }
+        }
+
+        // Final update with token usage
+        onUpdate(accumulatedContent, tokenUsage);
+      } else {
+        // Non-streaming request
+        const response = await openai.chat.completions.create({
+          model: activeConfig.model,
+          messages: formattedMessages,
+          stream: false,
+          temperature: advancedConfig.temperature,
+          max_tokens: advancedConfig.max_tokens,
+          top_p: advancedConfig.top_p,
+          frequency_penalty: advancedConfig.frequency_penalty,
+          presence_penalty: advancedConfig.presence_penalty,
+          ...(advancedConfig.stop && { stop: advancedConfig.stop }),
+          ...(advancedConfig.logit_bias && { logit_bias: advancedConfig.logit_bias }),
+          ...(advancedConfig.user && { user: advancedConfig.user }),
+        }, {
+          signal: abortSignal
+        });
+
+        // Get the complete response content
+        const content = response.choices[0]?.message?.content || '';
         
-        if (contentDelta) {
-          accumulatedContent += contentDelta;
-          // Use a Promise to ensure the event is processed before continuing
-          await new Promise<void>((resolve) => {
-            onChunk(accumulatedContent, tokenUsage);
-            // Use setTimeout to allow the UI to update before resolving
-            setTimeout(() => resolve(), 0);
-          });
-        }
+        // Get token usage if available
+        const tokenUsage = response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens
+        } : undefined;
 
-        // Check for usage info (typically in the last chunk)
-        // The OpenAI SDK doesn't include usage in stream chunks by default
-        // We need to cast the chunk to access potential usage data
-        const chunkWithUsage = chunk as any;
-        if (chunkWithUsage.usage) {
-          tokenUsage = {
-            promptTokens: chunkWithUsage.usage.prompt_tokens,
-            completionTokens: chunkWithUsage.usage.completion_tokens,
-            totalTokens: chunkWithUsage.usage.total_tokens
-          };
-          // Use a Promise to ensure the event is processed before continuing
-          await new Promise<void>((resolve) => {
-            onChunk(accumulatedContent, tokenUsage);
-            // Use setTimeout to allow the UI to update before resolving
-            setTimeout(() => resolve(), 0);
-          });
-        }
+        // Send the complete response at once
+        onUpdate(content, tokenUsage);
       }
-
-      // Make sure to send the final token usage when the stream is complete
-      // Use a Promise to ensure the event is processed before completing
-      await new Promise<void>((resolve) => {
-        onChunk(accumulatedContent, tokenUsage);
-        // Use setTimeout to allow the UI to update before resolving
-        setTimeout(() => resolve(), 0);
-      });
-
     } catch (error: any) {
       console.error('Error in sendChatRequest:', error);
-      
+
+      // Handle different error types
       if (error.name === 'AbortError') {
-        // Request was aborted by user, no need to log
-        // Still call onError to ensure the UI is updated properly
-        onError('abort', 'Request was cancelled');
-      } else if (error.status === 401 || error.status === 403) {
+        onError('abort', 'Request was aborted');
+      } else if (error.status === 401) {
         onError('auth_error', 'Authentication error');
-      } else if (error.message && error.message.includes('API key')) {
+      } else if (error.message?.includes('API key')) {
         onError('invalid_api_key', 'Invalid API key');
+      } else if (error.message?.includes('network')) {
+        onError('network_error', 'Network error');
       } else {
-        onError('network_error', error.message || 'Unknown error');
+        onError('unknown_error', error.message || 'Unknown error');
       }
-      
-      // Ensure any pending promises are resolved
-      // This prevents the "message channel closed before a response was received" error
-      await new Promise<void>((resolve) => {
-        setTimeout(() => resolve(), 0);
-      });
     }
   }
 }

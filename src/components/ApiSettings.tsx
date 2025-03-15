@@ -9,15 +9,7 @@ import ConfigList from './api-settings/ConfigList';
 import AddEditConfigModal from './api-settings/AddEditConfigModal';
 import DeleteConfigModal from './api-settings/DeleteConfigModal';
 import ValidationAlert from './api-settings/ValidationAlert';
-// import { ModelConfiguration } from './api-settings/types';
-
-export interface ModelConfiguration {
-  id: string;
-  name: string;
-  baseURL: string;
-  apiKey: string;
-  model: string;
-}
+import { ModelConfiguration } from './api-settings/types';
 
 const ApiSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -91,7 +83,16 @@ const ApiSettings: React.FC = () => {
       name: '',
       baseURL: '',
       apiKey: '',
-      model: ''
+      model: '',
+      advancedConfig: {
+        temperature: 1,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+        stream: true,
+        max_tokens: 2048
+      },
+      showAdvancedConfig: false
     });
     setShowAddEditModal(true);
   };

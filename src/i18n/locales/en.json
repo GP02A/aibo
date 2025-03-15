@@ -76,13 +76,29 @@
     "clear": "Clear",
     "clearAllHistory": "Clear all chat history",
     "confirmClear": "Clear All Chat History?",
-    "confirmClearMessage": "This will permanently delete all your chat history. This action cannot be undone."
+    "confirmClearMessage": "This will permanently delete all your chat history. This action cannot be undone.",
+    
+    "advancedConfig": "Advanced Configuration",
+    "advancedConfigWarning": "These settings are for advanced users only. Changing these values may significantly affect the AI's response quality and behavior. Apply with caution.",
+    "temperature": "Temperature",
+    "temperatureDescription": "Controls randomness: 0 is deterministic, 2 is very random (default: 1)",
+    "topP": "Top P",
+    "topPDescription": "Controls diversity via nucleus sampling: 0-1 (default: 1)",
+    "frequencyPenalty": "Frequency Penalty",
+    "frequencyPenaltyDescription": "Penalizes frequent tokens: -2.0 to 2.0 (default: 0)",
+    "presencePenalty": "Presence Penalty",
+    "presencePenaltyDescription": "Penalizes repeated tokens: -2.0 to 2.0 (default: 0)",
+    "maxTokens": "Max Tokens",
+    "maxTokensDescription": "Maximum number of tokens to generate (default: 2048)",
+    "streamResponse": "Stream Response",
+    "streamResponseDescription": "Whether to stream back partial progress (recommended)"
   },
   "common": {
     "cancel": "Cancel",
     "confirm": "Confirm",
     "error": "Error",
-    "ok": "OK"
+    "ok": "OK",
+    "enabled": "Enabled"
   },
   "configs": {
     "deepseek": "DeepSeek",

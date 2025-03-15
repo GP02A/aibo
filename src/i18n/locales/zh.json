@@ -71,13 +71,26 @@
       "english": "英语",
       "chinese": "中文"
     },
-    "dangerZone": "危险区域",
-    "dangerZoneWarning": "此处的操作无法撤消",
     "dataManagement": "数据管理",
-    "clearAllHistory": "清除所有聊天记录",
     "clear": "清除",
+    "clearAllHistory": "清除所有聊天记录",
     "confirmClear": "清除所有聊天记录？",
-    "confirmClearMessage": "这将永久删除您的所有聊天记录。此操作无法撤消。"
+    "confirmClearMessage": "这将永久删除您的所有聊天记录。此操作无法撤消。",
+    
+    "advancedConfig": "高级配置",
+    "advancedConfigWarning": "这些设置仅适用于高级用户。更改这些值可能会显著影响AI响应的质量和行为。请谨慎使用。",
+    "temperature": "温度",
+    "temperatureDescription": "控制随机性：0是确定性的，2是非常随机的（默认：1）",
+    "topP": "Top P",
+    "topPDescription": "通过核采样控制多样性：0-1（默认：1）",
+    "frequencyPenalty": "频率惩罚",
+    "frequencyPenaltyDescription": "惩罚频繁出现的标记：-2.0到2.0（默认：0）",
+    "presencePenalty": "存在惩罚",
+    "presencePenaltyDescription": "惩罚重复的标记：-2.0到2.0（默认：0）",
+    "maxTokens": "最大标记数",
+    "maxTokensDescription": "生成的最大标记数（默认：2048）",
+    "streamResponse": "流式响应",
+    "streamResponseDescription": "是否流式返回部分进度（推荐）"
   },
   "common": {
     "cancel": "取消",

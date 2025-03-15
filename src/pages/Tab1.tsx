@@ -18,7 +18,7 @@ import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ChatSidebar from '../components/ChatSidebar';
 import { ChatService } from '../services/ChatService';
-import { ModelConfiguration } from '../components/ApiSettings';
+import { ModelConfiguration } from '../components/api-settings/types';
 
 interface Message {
   role: 'user' | 'assistant';

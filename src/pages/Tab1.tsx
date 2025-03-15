@@ -350,6 +350,10 @@ const Tab1: React.FC = () => {
               case 'network_error':
                 errorContent = t('chat.networkError');
                 break;
+              case 'abort':
+                // Request was cancelled by user, just clear the thinking message
+                errorContent = '';
+                break;
               default:
                 errorContent = `${t('chat.errorMessage')} ${errorMessage}`;
             }

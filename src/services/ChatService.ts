@@ -292,6 +292,8 @@ export class ChatService {
       
       if (error.name === 'AbortError') {
         // Request was aborted by user, no need to log
+        // Still call onError to ensure the UI is updated properly
+        onError('abort', 'Request was cancelled');
       } else if (error.status === 401 || error.status === 403) {
         onError('auth_error', 'Authentication error');
       } else if (error.message && error.message.includes('API key')) {
@@ -299,6 +301,12 @@ export class ChatService {
       } else {
         onError('network_error', error.message || 'Unknown error');
       }
+      
+      // Ensure any pending promises are resolved
+      // This prevents the "message channel closed before a response was received" error
+      await new Promise<void>((resolve) => {
+        setTimeout(() => resolve(), 0);
+      });
     }
   }
 }

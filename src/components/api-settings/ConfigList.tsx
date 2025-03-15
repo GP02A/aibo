@@ -1,7 +1,7 @@
 import { IonItem, IonLabel, IonButton, IonIcon, IonList } from '@ionic/react';
 import { useTranslation } from 'react-i18next';
 import { add, create, trash } from 'ionicons/icons';
-import { ModelConfiguration } from './types';
+import { ModelConfiguration } from '../ApiSettings';
 
 interface ConfigListProps {
   configs: ModelConfiguration[];

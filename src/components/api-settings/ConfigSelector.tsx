@@ -1,6 +1,6 @@
 import { IonItem, IonLabel, IonSelect, IonSelectOption, IonText } from '@ionic/react';
 import { useTranslation } from 'react-i18next';
-import { ModelConfiguration } from './types';
+import { ModelConfiguration } from '../ApiSettings';
 
 interface ConfigSelectorProps {
   configs: ModelConfiguration[];

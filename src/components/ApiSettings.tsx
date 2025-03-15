@@ -9,6 +9,7 @@ import ConfigList from './api-settings/ConfigList';
 import AddEditConfigModal from './api-settings/AddEditConfigModal';
 import DeleteConfigModal from './api-settings/DeleteConfigModal';
 import ValidationAlert from './api-settings/ValidationAlert';
+// import { ModelConfiguration } from './api-settings/types';
 
 export interface ModelConfiguration {
   id: string;

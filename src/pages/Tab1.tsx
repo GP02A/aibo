@@ -18,6 +18,7 @@ import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ChatSidebar from '../components/ChatSidebar';
 import { ChatService } from '../services/ChatService';
+import { ModelConfiguration } from '../components/ApiSettings';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -34,14 +35,6 @@ interface ChatSession {
   title: string;
   messages: Message[];
   timestamp: number;
-}
-
-interface ModelConfiguration {
-  id: string;
-  name: string;
-  baseURL: string;
-  apiKey: string;
-  model: string;
 }
 
 const STORAGE_KEY = 'chat_sessions';

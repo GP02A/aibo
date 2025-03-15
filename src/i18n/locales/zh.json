@@ -71,6 +71,8 @@
       "english": "英语",
       "chinese": "中文"
     },
+    "dangerZone": "危险区域",
+    "dangerZoneWarning": "此处的操作无法撤消",
     "dataManagement": "数据管理",
     "clearAllHistory": "清除所有聊天记录",
     "clear": "清除",

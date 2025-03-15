@@ -71,8 +71,7 @@
       "english": "English",
       "chinese": "Chinese"
     },
-    "dangerZone": "Danger Zone",
-    "dangerZoneWarning": "Actions here cannot be undone",
+
     "dataManagement": "Data Management",
     "clear": "Clear",
     "clearAllHistory": "Clear all chat history",

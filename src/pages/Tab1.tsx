@@ -230,19 +230,6 @@ const Tab1: React.FC = () => {
       abortController.abort();
       setAbortController(null);
       setIsLoading(false);
-      
-      // Update the last message to indicate it was stopped
-      setCurrentMessages(prev => {
-        const newMessages = [...prev];
-        if (prev.length > 0 && prev[prev.length - 1].role === 'assistant') {
-          newMessages[newMessages.length - 1] = {
-            ...newMessages[newMessages.length - 1],
-            content: newMessages[newMessages.length - 1].content + 
-                     `\n\n_${t('chat.responseStopped')}_`
-          };
-        }
-        return newMessages;
-      });
     }
   };
   
@@ -344,8 +331,8 @@ const Tab1: React.FC = () => {
                 errorContent = t('chat.networkError');
                 break;
               case 'abort':
-                // Request was cancelled by user, just clear the thinking message
-                errorContent = '';
+                // Request was cancelled by user, show the proper message
+                errorContent = t('chat.responseStopped');
                 break;
               default:
                 errorContent = `${t('chat.errorMessage')} ${errorMessage}`;
@@ -362,25 +349,40 @@ const Tab1: React.FC = () => {
         }
       );
     } catch (error) {
-      console.error('Error in sendMessage:', error);
+      // Only log errors that aren't abort errors (which are expected when user cancels)
+      if (!(error instanceof Error && error.name === 'AbortError')) {
+        console.error('Error in sendMessage:', error);
+      }
+      
+      // Check if this is an abort error - handle both DOMException and regular Error with AbortError name
+      const isAbortError = (error instanceof DOMException && error.name === 'AbortError') || 
+                          (error instanceof Error && error.name === 'AbortError');
+      
       setCurrentMessages(prev => {
         const newMessages = [...prev];
         if (newMessages.length > 0) {
           newMessages[newMessages.length - 1] = { 
             role: 'assistant', 
-            content: `${t('chat.errorMessage')} ${(error as Error).message}`
+            content: isAbortError ? t('chat.responseStopped') : `${t('chat.errorMessage')} ${(error as Error).message}`
           };
         }
         return newMessages;
       });
-    } finally {
-      // Final scroll after streaming completes
-      setTimeout(scrollToBottom, 100);
       
-      if (!controller.signal.aborted) {
+      // If it's an abort error, make sure we reset the UI state properly
+      if (isAbortError) {
         setIsLoading(false);
         setAbortController(null);
       }
+    }
+    finally {
+      // Final scroll after streaming completes
+      setTimeout(scrollToBottom, 100);
+      
+      // Always reset loading state and abortController in finally block
+      // regardless of whether the request was aborted or not
+      setIsLoading(false);
+      setAbortController(null);
     }
   };
 

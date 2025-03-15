@@ -184,7 +184,9 @@ export class ChatService {
         for await (const chunk of stream) {
           // Check if request was aborted
           if (abortSignal.aborted) {
-            break;
+            // Call onError with abort type when aborted during streaming
+            onError('abort', 'Request was aborted');
+            return; // Exit the function early
           }
 
           // Get content delta
@@ -238,7 +240,10 @@ export class ChatService {
         onUpdate(content, tokenUsage);
       }
     } catch (error: any) {
-      console.error('Error in sendChatRequest:', error);
+      // Only log errors that aren't abort errors (which are expected when user cancels)
+      if (error.name !== 'AbortError') {
+        console.error('Error in sendChatRequest:', error);
+      }
 
       // Handle different error types
       if (error.name === 'AbortError') {

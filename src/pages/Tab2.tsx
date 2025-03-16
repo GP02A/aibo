@@ -92,9 +92,12 @@ const Tab2: React.FC = () => {
   const clearAllHistory = async () => {
     try {
       await Preferences.remove({ key: 'chat_sessions' });
+      // Make sure to close the alert before proceeding with any other operations
       setShowClearConfirm(false);
     } catch (error) {
       console.error('Failed to clear chat history:', error);
+      // Ensure the alert is closed even if there's an error
+      setShowClearConfirm(false);
     }
   };
 

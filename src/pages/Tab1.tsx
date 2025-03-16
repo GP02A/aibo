@@ -70,15 +70,23 @@ const Tab1: React.FC = () => {
     
     // Add event listener for active configuration changes
     const handleConfigChangeEvent = () => {
-      loadApiKey(); // Reload API key when configuration changes
-      loadActiveConfig(); // Reload active configuration
-      loadConfigs(); // Reload configurations list
+      // Use Promise.all to handle all async operations together
+      Promise.all([
+        loadApiKey(),
+        loadActiveConfig(),
+        loadConfigs()
+      ]).catch(error => {
+        console.error('Error handling configuration change:', error);
+      });
     };
     
     // Add event listener for model configurations changes
     const handleModelConfigurationsChange = (event: CustomEvent) => {
       setConfigs(event.detail); // Update configs directly from the event data
-      loadActiveConfig(); // Make sure active config is still valid
+      // Properly handle the promise from loadActiveConfig
+      loadActiveConfig().catch(error => {
+        console.error('Error loading active config after model config change:', error);
+      });
     };
     
     // Add event listeners
@@ -129,9 +137,13 @@ const Tab1: React.FC = () => {
   };
 
   const loadApiKey = async () => {
-    const activeConfig = await ChatService.getActiveConfig();
-    if (activeConfig?.apiKey) {
-      setApiKey(activeConfig.apiKey);
+    try {
+      const activeConfig = await ChatService.getActiveConfig();
+      if (activeConfig?.apiKey) {
+        setApiKey(activeConfig.apiKey);
+      }
+    } catch (error) {
+      console.error('Failed to load API key:', error);
     }
   };
 

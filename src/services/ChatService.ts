@@ -125,23 +125,26 @@ export class ChatService {
     onError: (errorType: string, errorMessage: string) => void
   ): Promise<void> {
     try {
-      // Get active configuration
+      // Get active configuration and validate it in a single block
       const activeConfig = await this.getActiveConfig();
       if (!activeConfig) {
         onError('config_error', 'No active configuration found');
         return;
       }
-
-      // Validate API key
+      
+      // Validate configuration in a single block
       if (!apiKey) {
         onError('invalid_api_key', 'API key is required');
+        return;
+      } else if (!activeConfig.baseURL) {
+        onError('auth_error', 'Base URL is required');
         return;
       }
 
       // Create OpenAI client
       const openai = new OpenAI({
         apiKey: apiKey,
-        baseURL: activeConfig.baseURL || undefined,
+        baseURL: activeConfig.baseURL,
         dangerouslyAllowBrowser: true // Allow browser usage
       });
 
@@ -193,7 +196,9 @@ export class ChatService {
           const content = chunk.choices[0]?.delta?.content || '';
           if (content) {
             accumulatedContent += content;
-            onUpdate(accumulatedContent, tokenUsage);
+            // Only update content during streaming, don't pass incomplete token usage
+            // This prevents showing a message with zero tokens that appears blank
+            onUpdate(accumulatedContent);
           }
 
           // Update token usage if available

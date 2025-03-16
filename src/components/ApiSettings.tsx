@@ -29,8 +29,13 @@ const ApiSettings: React.FC = () => {
 
     // Add event listeners for configuration changes
     const handleConfigChange = () => {
-      loadConfigs();
-      loadActiveConfig();
+      // Use Promise.all to handle all async operations together
+      Promise.all([
+        loadConfigs(),
+        loadActiveConfig()
+      ]).catch(error => {
+        console.error('Failed to handle configuration change:', error);
+      });
     };
 
     document.addEventListener('activeConfigChanged', handleConfigChange);

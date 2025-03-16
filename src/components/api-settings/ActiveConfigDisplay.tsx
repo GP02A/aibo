@@ -15,7 +15,7 @@ import {
 } from '@ionic/react';
 import { useTranslation } from 'react-i18next';
 import { eyeOutline, eyeOffOutline, create } from 'ionicons/icons';
-import { ModelConfiguration } from '../ApiSettings';
+import { ModelConfiguration } from './types';
 
 interface ActiveConfigDisplayProps {
   activeConfig: ModelConfiguration;

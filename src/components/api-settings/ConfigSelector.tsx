@@ -28,9 +28,7 @@ const ConfigSelector: React.FC<ConfigSelectorProps> = ({
         >
           {configs.map((config) => (
             <IonSelectOption key={config.id} value={config.id}>
-              {t(`configs.${config.id}`) !== `configs.${config.id}` 
-                ? t(`configs.${config.id}`) 
-                : config.name}
+              {config.name}
             </IonSelectOption>
           ))}
         </IonSelect>

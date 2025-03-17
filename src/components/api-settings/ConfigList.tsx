@@ -36,9 +36,7 @@ const ConfigList: React.FC<ConfigListProps> = ({
         {configs.map((config) => (
           <IonItem key={config.id}>
             <IonLabel>
-              {t(`configs.${config.id}`) !== `configs.${config.id}` 
-                ? t(`configs.${config.id}`) 
-                : config.name}
+              {config.name}
             </IonLabel>
             <IonButton
               fill="clear"

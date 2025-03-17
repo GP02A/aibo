@@ -33,9 +33,7 @@ const ActiveConfigDisplay: React.FC<ActiveConfigDisplayProps> = ({
     <IonCard className="ion-margin">
       <IonCardHeader>
         <IonCardTitle>
-          {t(`configs.${activeConfig.id}`) !== `configs.${activeConfig.id}` 
-            ? t(`configs.${activeConfig.id}`) 
-            : activeConfig.name}
+          {activeConfig.name}
         </IonCardTitle>
       </IonCardHeader>
       <IonCardContent>

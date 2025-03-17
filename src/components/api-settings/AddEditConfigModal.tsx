@@ -108,7 +108,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
             <IonLabel position="stacked">{t('settings.configName')} *</IonLabel>
             <IonInput 
               value={name} 
-              onIonChange={e => setName(e.detail.value || '')}
+              onIonInput={e => setName(e.detail.value || '')}
               placeholder={t('settings.configName')}
               required
             />
@@ -118,7 +118,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
             <IonLabel position="stacked">{t('settings.baseUrl')}</IonLabel>
             <IonInput 
               value={baseURL} 
-              onIonChange={e => setBaseURL(e.detail.value || '')}
+              onIonInput={e => setBaseURL(e.detail.value || '')}
               placeholder={t('settings.baseUrl')}
             />
           </IonItem>
@@ -127,7 +127,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
             <IonLabel position="stacked">{t('settings.modelName')}</IonLabel>
             <IonInput 
               value={model} 
-              onIonChange={e => setModel(e.detail.value || '')}
+              onIonInput={e => setModel(e.detail.value || '')}
               placeholder={t('settings.modelName')}
             />
           </IonItem>
@@ -137,7 +137,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
             <IonInput 
               type="password"
               value={apiKey} 
-              onIonChange={e => setApiKey(e.detail.value || '')}
+              onIonInput={e => setApiKey(e.detail.value || '')}
               placeholder={t('settings.apiKey')}
             />
           </IonItem>
@@ -173,7 +173,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
                   max={2} 
                   step={0.01} 
                   value={temperature} 
-                  onIonChange={e => setTemperature(e.detail.value as number)}
+                  onIonInput={e => setTemperature(e.detail.value as number)}
                 />
               </IonItem>
               
@@ -187,7 +187,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
                   max={1} 
                   step={0.01} 
                   value={topP} 
-                  onIonChange={e => setTopP(e.detail.value as number)}
+                  onIonInput={e => setTopP(e.detail.value as number)}
                 />
               </IonItem>
               
@@ -201,7 +201,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
                   max={2} 
                   step={0.01} 
                   value={frequencyPenalty} 
-                  onIonChange={e => setFrequencyPenalty(e.detail.value as number)}
+                  onIonInput={e => setFrequencyPenalty(e.detail.value as number)}
                 />
               </IonItem>
               
@@ -215,7 +215,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
                   max={2} 
                   step={0.01} 
                   value={presencePenalty} 
-                  onIonChange={e => setPresencePenalty(e.detail.value as number)}
+                  onIonInput={e => setPresencePenalty(e.detail.value as number)}
                 />
               </IonItem>
               
@@ -229,7 +229,7 @@ const AddEditConfigModal: React.FC<AddEditConfigModalProps> = ({
                   max={8192} 
                   step={1} 
                   value={maxTokens} 
-                  onIonChange={e => setMaxTokens(e.detail.value as number)}
+                  onIonInput={e => setMaxTokens(e.detail.value as number)}
                 />
               </IonItem>
               

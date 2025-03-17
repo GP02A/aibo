@@ -1,16 +1,14 @@
-// Ionic Framework components
-// Framework imports
 import {
   IonContent, IonHeader, IonPage, IonTitle, IonToolbar,
   IonList, IonItem, IonButton, IonFooter, IonSplitPane,
   IonMenu, IonMenuToggle, IonIcon, IonText, IonSelect, IonSelectOption
 } from '@ionic/react';
 import {
-  useState, useEffect, useRef, useCallback, useMemo
+  useState, useEffect, useRef, useCallback
 } from 'react';
 import { throttle } from 'lodash-es';
 import { Preferences } from '@capacitor/preferences';
-import { chatbubbleEllipses, add, key } from 'ionicons/icons';
+import { chatbubbleEllipses, key } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import './Tab1.css';
 import '../i18n';
@@ -20,6 +18,7 @@ import ChatSidebar from '../components/ChatSidebar';
 import { ChatService } from '../services/ChatService';
 import { ModelConfiguration } from '../components/api-settings/types';
 
+// Define interfaces for messages and chat sessions
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -37,119 +36,73 @@ interface ChatSession {
   timestamp: number;
 }
 
-const STORAGE_KEY = 'chat_sessions';
-// Remove duplicate API_KEY_STORAGE constant since it's imported from ChatService
+// Storage key for chat sessions
+const CHAT_SESSIONS_STORAGE = 'chat_sessions';
 
 const Tab1: React.FC = () => {
   const { t } = useTranslation();
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-  const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
+  const contentRef = useRef<HTMLIonContentElement>(null);
+  
+  // Chat state
   const [inputMessage, setInputMessage] = useState('');
+  const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKey] = useState<string>('');
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
-  const [currentTokenUsage, setCurrentTokenUsage] = useState<{
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  } | null>(null);
-  // Add state for model configurations
+  
+  // API configuration state
   const [configs, setConfigs] = useState<ModelConfiguration[]>([]);
-  const [activeConfigId, setActiveConfigId] = useState<string>('');
+  const [activeConfigId, setActiveConfigId] = useState('');
+  const [activeConfig, setActiveConfig] = useState<ModelConfiguration | null>(null);
+  
+  // Abort controller for stopping API requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Load configurations and chat sessions on component mount
   useEffect(() => {
-    loadChatSessions();
-    loadApiKey();
     loadConfigs();
-    loadActiveConfig();
+    loadChatSessions();
     
-    // Add event listener for API key changes
-    const handleApiKeyChange = (event: CustomEvent) => {
-      setApiKey(event.detail);
+    // Add event listeners for configuration changes
+    const handleConfigChange = () => {
+      loadConfigs();
     };
     
-    // Add event listener for active configuration changes
-    const handleConfigChangeEvent = () => {
-      // Use Promise.all to handle all async operations together
-      Promise.all([
-        loadApiKey(),
-        loadActiveConfig(),
-        loadConfigs()
-      ]).catch(error => {
-        console.error('Error handling configuration change:', error);
-      });
-    };
+    document.addEventListener('modelConfigurationsChanged', handleConfigChange);
+    document.addEventListener('activeConfigChanged', handleConfigChange);
     
-    // Add event listener for model configurations changes
-    const handleModelConfigurationsChange = (event: CustomEvent) => {
-      setConfigs(event.detail); // Update configs directly from the event data
-      // Properly handle the promise from loadActiveConfig
-      loadActiveConfig().catch(error => {
-        console.error('Error loading active config after model config change:', error);
-      });
-    };
-    
-    // Add event listeners
-    document.addEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
-    document.addEventListener('activeConfigChanged', handleConfigChangeEvent as EventListener);
-    document.addEventListener('modelConfigurationsChanged', handleModelConfigurationsChange as EventListener);
-    
-    // Clean up event listeners when component unmounts
     return () => {
-      document.removeEventListener('apiKeyChanged', handleApiKeyChange as EventListener);
-      document.removeEventListener('activeConfigChanged', handleConfigChangeEvent as EventListener);
-      document.removeEventListener('modelConfigurationsChanged', handleModelConfigurationsChange as EventListener);
+      document.removeEventListener('modelConfigurationsChanged', handleConfigChange);
+      document.removeEventListener('activeConfigChanged', handleConfigChange);
     };
   }, []);
-
-  // Load configurations from ChatService
+  
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [currentMessages]);
+  
+  // Load model configurations
   const loadConfigs = async () => {
     try {
       const loadedConfigs = await ChatService.getModelConfigurations();
       setConfigs(loadedConfigs);
-    } catch (error) {
-      console.error('Failed to load model configurations:', error);
-    }
-  };
-
-  // Load active configuration from ChatService
-  const loadActiveConfig = async () => {
-    try {
+      
       const configId = await ChatService.getActiveConfigId();
-      if (configId) {
-        setActiveConfigId(configId);
-      }
-    } catch (error) {
-      console.error('Failed to load active configuration:', error);
-    }
-  };
-
-  // Handle configuration change
-  const handleConfigChange = async (configId: string) => {
-    try {
-      await ChatService.setActiveConfigId(configId);
       setActiveConfigId(configId);
-      // Reload API key after changing configuration
-      await loadApiKey();
-    } catch (error) {
-      console.error('Failed to set active configuration:', error);
-    }
-  };
-
-  const loadApiKey = async () => {
-    try {
-      const activeConfig = await ChatService.getActiveConfig();
-      if (activeConfig?.apiKey) {
-        setApiKey(activeConfig.apiKey);
+      
+      if (configId) {
+        const config = loadedConfigs.find(c => c.id === configId) || null;
+        setActiveConfig(config);
       }
     } catch (error) {
-      console.error('Failed to load API key:', error);
+      console.error('Failed to load configurations:', error);
     }
   };
-
+  
+  // Load chat sessions from storage
   const loadChatSessions = async () => {
     try {
-      const { value } = await Preferences.get({ key: STORAGE_KEY });
+      const { value } = await Preferences.get({ key: CHAT_SESSIONS_STORAGE });
       if (value) {
         setChatSessions(JSON.parse(value));
       }
@@ -157,41 +110,41 @@ const Tab1: React.FC = () => {
       console.error('Failed to load chat sessions:', error);
     }
   };
-
+  
+  // Save chat sessions to storage
   const saveChatSessions = async (sessions: ChatSession[]) => {
     try {
       await Preferences.set({
-        key: STORAGE_KEY,
+        key: CHAT_SESSIONS_STORAGE,
         value: JSON.stringify(sessions),
       });
+      setChatSessions(sessions);
     } catch (error) {
       console.error('Failed to save chat sessions:', error);
     }
   };
-
-  const saveCurrentChat = async () => {
-    if (currentMessages.length === 0) return;
-    
-    const newSession: ChatSession = {
-      id: Date.now().toString(),
-      title: currentMessages[0].content.slice(0, 30) + '...',
-      messages: currentMessages,
-      timestamp: Date.now()
-    };
-
-    const updatedSessions = [newSession, ...chatSessions];
-    setChatSessions(updatedSessions);
-    saveChatSessions(updatedSessions);
-    setCurrentMessages([]);
+  
+  // Handle configuration change
+  const handleConfigChange = async (configId: string) => {
+    try {
+      await ChatService.setActiveConfigId(configId);
+      setActiveConfigId(configId);
+      
+      const config = configs.find(c => c.id === configId) || null;
+      setActiveConfig(config);
+    } catch (error) {
+      console.error('Failed to set active configuration:', error);
+    }
   };
-
+  
+  // Group chat sessions by time period
   const getGroupedSessions = () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const yesterday = today - 86400000; // 24 hours in milliseconds
     const pastWeek = today - 86400000 * 7;
     const pastMonth = today - 86400000 * 30;
-
+    
     const groups: { [key: string]: ChatSession[] } = {
       [t('timeline.today')]: [],
       [t('timeline.yesterday')]: [],
@@ -199,204 +152,198 @@ const Tab1: React.FC = () => {
       [t('timeline.pastMonth')]: [],
       [t('timeline.older')]: []
     };
-
+    
     chatSessions.forEach(session => {
-      const timestamp = session.timestamp;
-      if (timestamp >= today) {
+      if (session.timestamp >= today) {
         groups[t('timeline.today')].push(session);
-      } else if (timestamp >= yesterday) {
+      } else if (session.timestamp >= yesterday) {
         groups[t('timeline.yesterday')].push(session);
-      } else if (timestamp >= pastWeek) {
+      } else if (session.timestamp >= pastWeek) {
         groups[t('timeline.pastWeek')].push(session);
-      } else if (timestamp >= pastMonth) {
+      } else if (session.timestamp >= pastMonth) {
         groups[t('timeline.pastMonth')].push(session);
       } else {
         groups[t('timeline.older')].push(session);
       }
     });
-
+    
+    // Sort sessions within each group by timestamp (newest first)
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => b.timestamp - a.timestamp);
+    });
+    
     return groups;
   };
-
-  const deleteSession = async (sessionId: string) => {
-    const updatedSessions = chatSessions.filter(session => session.id !== sessionId);
-    setChatSessions(updatedSessions);
-    saveChatSessions(updatedSessions);
-  };
-
-  // Add a reference to the content element
-  const contentRef = useRef<HTMLIonContentElement>(null);
   
-  const scrollToBottom = useCallback(() => {
-    contentRef.current?.scrollToBottom(300);
-  }, []);
-
-  const throttledScroll = useMemo(() =>
-    throttle(() => scrollToBottom(), 500),
-    [scrollToBottom]
-  );
-  
-  // Function to stop the ongoing response
-  const stopResponse = () => {
-    if (abortController) {
-      abortController.abort();
-      setAbortController(null);
-      setIsLoading(false);
+  // Delete a chat session
+  const deleteSession = async (id: string) => {
+    const updatedSessions = chatSessions.filter(session => session.id !== id);
+    await saveChatSessions(updatedSessions);
+    
+    // If the current chat is deleted, clear the current messages
+    const currentSession = chatSessions.find(session => session.id === id);
+    if (currentSession && arraysEqual(currentSession.messages, currentMessages)) {
+      setCurrentMessages([]);
     }
   };
   
+  // Helper function to compare arrays
+  const arraysEqual = (a: any[], b: any[]) => {
+    if (a.length !== b.length) return false;
+    return JSON.stringify(a) === JSON.stringify(b);
+  };
+  
+  // Save current chat as a session
+  const saveCurrentChat = async () => {
+    if (currentMessages.length === 0) return;
+    
+    // Create a title from the first user message
+    const firstUserMessage = currentMessages.find(msg => msg.role === 'user');
+    const title = firstUserMessage 
+      ? firstUserMessage.content.substring(0, 30) + (firstUserMessage.content.length > 30 ? '...' : '')
+      : t('chat.newChat');
+    
+    const newSession: ChatSession = {
+      id: Date.now().toString(),
+      title,
+      messages: [...currentMessages],
+      timestamp: Date.now()
+    };
+    
+    // Check if this chat is already saved
+    const existingSessionIndex = chatSessions.findIndex(session => 
+      arraysEqual(session.messages, currentMessages)
+    );
+    
+    let updatedSessions: ChatSession[];
+    
+    if (existingSessionIndex !== -1) {
+      // Update existing session
+      updatedSessions = [...chatSessions];
+      updatedSessions[existingSessionIndex] = {
+        ...updatedSessions[existingSessionIndex],
+        timestamp: Date.now() // Update timestamp
+      };
+    } else {
+      // Add new session
+      updatedSessions = [newSession, ...chatSessions];
+    }
+    
+    await saveChatSessions(updatedSessions);
+  };
+  
+  // Send a message to the API
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
-    
-    // If there's an ongoing request, stop it first
-    if (abortController) {
-      stopResponse();
-    }
-    
-    // Create a new AbortController
-    const controller = new AbortController();
-    setAbortController(controller);
-    
-    // Reset token usage for new message
-    setCurrentTokenUsage(null);
-
-    // Get the latest API key from the active configuration
-    const activeConfig = await ChatService.getActiveConfig();
-    const currentApiKey = activeConfig?.apiKey || null;
-    
-    // Check if API key is available
-    if (!currentApiKey) {
-      setCurrentMessages(prev => [...prev, { 
-        role: 'assistant', 
+    if (!activeConfig || !activeConfig.apiKey) {
+      // Show error message if no API key is set
+      const errorMessage: Message = {
+        role: 'assistant',
         content: t('chat.noApiKey')
-      }]);
-      setTimeout(scrollToBottom, 100);
-      setAbortController(null);
+      };
+      setCurrentMessages([...currentMessages, { role: 'user', content: inputMessage }, errorMessage]);
+      setInputMessage('');
       return;
     }
-
-    // Update the state with the latest API key
-    if (currentApiKey !== apiKey) {
-      setApiKey(currentApiKey);
-    }
-
-    const newMessage: Message = { role: 'user', content: inputMessage };
     
-    // Update messages with user input first
-    const updatedMessages = [...currentMessages, newMessage];
-    setCurrentMessages(updatedMessages);
+    // Add user message to the chat
+    const userMessage: Message = { role: 'user', content: inputMessage };
+    const assistantMessage: Message = { role: 'assistant', content: t('chat.thinking') };
+    
+    setCurrentMessages([...currentMessages, userMessage, assistantMessage]);
     setInputMessage('');
     setIsLoading(true);
-    setTimeout(scrollToBottom, 100);
-
-    // Add a placeholder message for streaming responses with "thinking" text
-    setCurrentMessages(prev => [...prev, { 
-      role: 'assistant', 
-      content: `${t('chat.thinking')}` 
-    }]);
-    setTimeout(scrollToBottom, 100);
-
+    
+    // Create a new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    
     try {
+      // Prepare messages for the API
+      const messagesToSend = [...currentMessages, userMessage];
+      
+      // Send the request to the API
       await ChatService.sendChatRequest(
-        currentApiKey, // Use the freshly fetched API key
-        updatedMessages, // Use the updated messages array
-        controller.signal,
+        activeConfig.apiKey,
+        messagesToSend,
+        abortControllerRef.current.signal,
+        // Update callback
         (content, tokenUsage) => {
-          // Update the message with accumulated content
-          setCurrentMessages(prev => {
-            const newMessages = [...prev];
-            if (newMessages.length > 0) {
-              // Make sure to include the token usage in the message
-              newMessages[newMessages.length - 1] = {
+          setCurrentMessages(prevMessages => {
+            const newMessages = [...prevMessages];
+            const lastIndex = newMessages.length - 1;
+            
+            if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
+              newMessages[lastIndex] = {
                 role: 'assistant',
-                content: content,
-                tokenUsage: tokenUsage // Ensure this is properly passed
+                content,
+                tokenUsage
               };
             }
+            
             return newMessages;
           });
-          
-          // Also update the current token usage state
-          if (tokenUsage) {
-            setCurrentTokenUsage(tokenUsage);
-          }
-          
-          // Scroll to bottom periodically during streaming
-          if (content.length % 50 === 0) {
-            throttledScroll();
-          }
         },
+        // Error callback
         (errorType, errorMessage) => {
-          setCurrentMessages(prev => {
-            // Replace the placeholder message
-            const newMessages = [...prev];
-            let errorContent = '';
+          setCurrentMessages(prevMessages => {
+            const newMessages = [...prevMessages];
+            const lastIndex = newMessages.length - 1;
             
-            switch (errorType) {
-              case 'auth_error':
-                errorContent = t('chat.authError');
-                break;
-              case 'invalid_api_key':
-                errorContent = t('chat.invalidApiKey');
-                break;
-              case 'network_error':
-                errorContent = t('chat.networkError');
-                break;
-              case 'abort':
-                // Request was cancelled by user, show the proper message
-                errorContent = t('chat.responseStopped');
-                break;
-              default:
-                errorContent = `${t('chat.errorMessage')} ${errorMessage}`;
-            }
-            
-            if (newMessages.length > 0) {
-              newMessages[newMessages.length - 1] = { 
-                role: 'assistant', 
-                content: errorContent
+            if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
+              let content = '';
+              
+              switch (errorType) {
+                case 'abort':
+                  content = t('chat.responseStopped');
+                  break;
+                case 'auth_error':
+                  content = t('chat.authError');
+                  break;
+                case 'invalid_api_key':
+                  content = t('chat.invalidApiKey');
+                  break;
+                case 'network_error':
+                  content = t('chat.networkError');
+                  break;
+                default:
+                  content = `${t('chat.errorMessage')} ${errorMessage}`;
+              }
+              
+              newMessages[lastIndex] = {
+                role: 'assistant',
+                content
               };
             }
+            
             return newMessages;
           });
         }
       );
     } catch (error) {
-      // Only log errors that aren't abort errors (which are expected when user cancels)
-      if (!(error instanceof Error && error.name === 'AbortError')) {
-        console.error('Error in sendMessage:', error);
-      }
-      
-      // Check if this is an abort error - handle both DOMException and regular Error with AbortError name
-      const isAbortError = (error instanceof DOMException && error.name === 'AbortError') || 
-                          (error instanceof Error && error.name === 'AbortError');
-      
-      setCurrentMessages(prev => {
-        const newMessages = [...prev];
-        if (newMessages.length > 0) {
-          newMessages[newMessages.length - 1] = { 
-            role: 'assistant', 
-            content: isAbortError ? t('chat.responseStopped') : `${t('chat.errorMessage')} ${(error as Error).message}`
-          };
-        }
-        return newMessages;
-      });
-      
-      // If it's an abort error, make sure we reset the UI state properly
-      if (isAbortError) {
-        setIsLoading(false);
-        setAbortController(null);
-      }
-    }
-    finally {
-      // Final scroll after streaming completes
-      setTimeout(scrollToBottom, 100);
-      
-      // Always reset loading state and abortController in finally block
-      // regardless of whether the request was aborted or not
+      console.error('Error sending message:', error);
+    } finally {
       setIsLoading(false);
-      setAbortController(null);
+      abortControllerRef.current = null;
     }
   };
+  
+  // Stop the current response
+  const stopResponse = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  };
+  
+  // Scroll to the bottom of the chat
+  const scrollToBottom = useCallback(
+    throttle(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollToBottom(300);
+      }
+    }, 100),
+    []
+  );
 
   return (
     <IonPage>
@@ -435,8 +382,8 @@ const Tab1: React.FC = () => {
                         {t(`providers.${config.id}`) !== `providers.${config.id}` 
                           ? t(`providers.${config.id}`) 
                           : config.name}
-                    </IonSelectOption>
-                  ))}
+                      </IonSelectOption>
+                    ))}
                   </IonSelect>
                 ) : (
                   <IonText color="medium">
@@ -454,7 +401,7 @@ const Tab1: React.FC = () => {
                 {t('chat.saveChat')}
               </IonButton>
             </IonToolbar>
-          </IonHeader>
+            </IonHeader>
           
           <IonContent ref={contentRef}>
             <IonList lines="none" className="ion-padding">

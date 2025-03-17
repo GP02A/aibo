@@ -297,7 +297,7 @@ const Tab1: React.FC = () => {
         contentRef.current.scrollToBottom(300);
       }
     }, 100),
-    []
+    [currentMessages]
   );
 
   return (

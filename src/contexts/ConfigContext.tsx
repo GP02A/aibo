@@ -7,6 +7,7 @@ interface ConfigContextType {
   activeConfig: ModelConfiguration | null;
   loadConfigs: () => Promise<void>;
   handleConfigChange: (configId: string) => Promise<void>;
+  saveConfigs: (updatedConfigs: ModelConfiguration[]) => Promise<void>;
 }
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
@@ -77,11 +78,24 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
     }
   };
 
+  // Save model configurations
+  const saveConfigs = async (updatedConfigs: ModelConfiguration[]) => {
+    try {
+      await ChatService.saveModelConfigurations(updatedConfigs);
+      // After saving, reload the configurations to ensure state is in sync
+      await loadConfigs();
+    } catch (error) {
+      console.error('Failed to save configurations:', error);
+      throw error;
+    }
+  };
+
   const value = {
     configs,
     activeConfig,
     loadConfigs,
-    handleConfigChange
+    handleConfigChange,
+    saveConfigs
   };
 
   return (

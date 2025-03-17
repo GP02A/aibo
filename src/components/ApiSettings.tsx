@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IonItemGroup, IonListHeader, IonLabel, IonIcon } from '@ionic/react';
 import { key } from 'ionicons/icons';
-import { ChatService } from '../services/ChatService';
+// ChatService import removed as we're using ConfigContext
 import ConfigSelector from './api-settings/ConfigSelector';
 import ActiveConfigDisplay from './api-settings/ActiveConfigDisplay';
 import ConfigList from './api-settings/ConfigList';
@@ -14,7 +14,7 @@ import { useConfig } from '../contexts/ConfigContext';
 
 const ApiSettings: React.FC = () => {
   const { t } = useTranslation();
-  const { configs, activeConfig, loadConfigs, handleConfigChange } = useConfig();
+  const { configs, activeConfig, loadConfigs, handleConfigChange, saveConfigs } = useConfig();
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showValidationAlert, setShowValidationAlert] = useState(false);
@@ -66,7 +66,7 @@ const ApiSettings: React.FC = () => {
     try {
       // Filter out the configuration to delete
       const updatedConfigs = configs.filter(p => p.id !== editingConfig.id);
-      await ChatService.saveModelConfigurations(updatedConfigs);
+      await saveConfigs(updatedConfigs);
 
       // If the deleted configuration was active, switch to another available configuration
       if (activeConfig && activeConfig.id === editingConfig.id && updatedConfigs.length > 0) {
@@ -74,8 +74,6 @@ const ApiSettings: React.FC = () => {
         await handleConfigChange(updatedConfigs[0].id);
       }
 
-      // Reload configs after deletion
-      loadConfigs();
       setShowDeleteConfirm(false);
       setEditingConfig(null);
     } catch (error) {
@@ -105,15 +103,12 @@ const ApiSettings: React.FC = () => {
         updatedConfigs = [...configs, config];
       }
       
-      await ChatService.saveModelConfigurations(updatedConfigs);
+      await saveConfigs(updatedConfigs);
       
       // If there's no active configuration or we're adding the first configuration,
       // automatically set the new configuration as active
       if (!activeConfig || configs.length === 0) {
         await handleConfigChange(config.id);
-      } else {
-        // Reload configs to reflect changes
-        loadConfigs();
       }
       
       setShowAddEditModal(false);

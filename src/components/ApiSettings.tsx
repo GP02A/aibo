@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IonItemGroup, IonListHeader, IonLabel, IonIcon } from '@ionic/react';
 import { key } from 'ionicons/icons';
@@ -10,11 +10,11 @@ import AddEditConfigModal from './api-settings/AddEditConfigModal';
 import DeleteConfigModal from './api-settings/DeleteConfigModal';
 import ValidationAlert from './api-settings/ValidationAlert';
 import { ModelConfiguration } from './api-settings/types';
+import { useConfig } from '../contexts/ConfigContext';
 
 const ApiSettings: React.FC = () => {
   const { t } = useTranslation();
-  const [configs, setConfigs] = useState<ModelConfiguration[]>([]);
-  const [activeConfigId, setActiveConfigId] = useState<string>('');
+  const { configs, activeConfig, loadConfigs, handleConfigChange } = useConfig();
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showValidationAlert, setShowValidationAlert] = useState(false);
@@ -22,64 +22,7 @@ const ApiSettings: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
 
-  // Load configurations and active configuration on component mount
-  useEffect(() => {
-    loadConfigs();
-    loadActiveConfig();
-
-    // Add event listeners for configuration changes
-    const handleConfigChange = () => {
-      // Use Promise.all to handle all async operations together
-      Promise.all([
-        loadConfigs(),
-        loadActiveConfig()
-      ]).catch(error => {
-        console.error('Failed to handle configuration change:', error);
-      });
-    };
-
-    document.addEventListener('activeConfigChanged', handleConfigChange);
-    document.addEventListener('apiKeyChanged', handleConfigChange);
-
-    return () => {
-      document.removeEventListener('activeConfigChanged', handleConfigChange);
-      document.removeEventListener('apiKeyChanged', handleConfigChange);
-    };
-  }, []);
-
-  const loadConfigs = async () => {
-    try {
-      const loadedConfigs = await ChatService.getModelConfigurations();
-      setConfigs(loadedConfigs);
-    } catch (error) {
-      console.error('Failed to load model configurations:', error);
-      // Continue with empty configs array rather than crashing
-    }
-  };
-
-  const loadActiveConfig = async () => {
-    try {
-      const configId = await ChatService.getActiveConfigId();
-      if (configId) {
-        setActiveConfigId(configId);
-      }
-    } catch (error) {
-      console.error('Failed to load active configuration:', error);
-      // Default to first config if available
-      if (configs.length > 0) {
-        setActiveConfigId(configs[0].id);
-      }
-    }
-  };
-
-  const handleConfigChange = async (configId: string) => {
-    try {
-      await ChatService.setActiveConfigId(configId);
-      setActiveConfigId(configId);
-    } catch (error) {
-      console.error('Failed to set active configuration:', error);
-    }
-  };
+  // Configuration state is now managed by ConfigContext
 
   const handleAddConfig = () => {
     setIsEditing(false);
@@ -126,20 +69,13 @@ const ApiSettings: React.FC = () => {
       await ChatService.saveModelConfigurations(updatedConfigs);
 
       // If the deleted configuration was active, switch to another available configuration
-      if (activeConfigId === editingConfig.id) {
-        if (updatedConfigs.length > 0) {
-          // Select the first available configuration from the remaining ones
-          const newActiveConfigId = updatedConfigs[0].id;
-          await ChatService.setActiveConfigId(newActiveConfigId);
-          setActiveConfigId(newActiveConfigId);
-        } else {
-          // If no configurations left, handle appropriately
-          // Reset activeConfigId since there are no configurations
-          setActiveConfigId('');
-        }
+      if (activeConfig && activeConfig.id === editingConfig.id && updatedConfigs.length > 0) {
+        // Select the first available configuration from the remaining ones
+        await handleConfigChange(updatedConfigs[0].id);
       }
 
-      setConfigs(updatedConfigs);
+      // Reload configs after deletion
+      loadConfigs();
       setShowDeleteConfirm(false);
       setEditingConfig(null);
     } catch (error) {
@@ -170,13 +106,14 @@ const ApiSettings: React.FC = () => {
       }
       
       await ChatService.saveModelConfigurations(updatedConfigs);
-      setConfigs(updatedConfigs);
       
       // If there's no active configuration or we're adding the first configuration,
       // automatically set the new configuration as active
-      if (!activeConfigId || activeConfigId === '' || configs.length === 0) {
-        await ChatService.setActiveConfigId(config.id);
-        setActiveConfigId(config.id);
+      if (!activeConfig || configs.length === 0) {
+        await handleConfigChange(config.id);
+      } else {
+        // Reload configs to reflect changes
+        loadConfigs();
       }
       
       setShowAddEditModal(false);
@@ -186,8 +123,7 @@ const ApiSettings: React.FC = () => {
     }
   };
 
-  // Find the active configuration
-  const activeConfig = configs.find(p => p.id === activeConfigId);
+  // Active configuration is now directly from context
 
   return (
     <>
@@ -201,7 +137,7 @@ const ApiSettings: React.FC = () => {
 
         <ConfigSelector 
           configs={configs} 
-          activeConfigId={activeConfigId} 
+          activeConfig={activeConfig} 
           onConfigChange={handleConfigChange} 
         />
 

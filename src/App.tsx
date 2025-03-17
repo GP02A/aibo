@@ -8,6 +8,7 @@ import { Redirect, Route } from 'react-router-dom';
 import Tab1 from './pages/Tab1';
 import Tab2 from './pages/Tab2';
 import { useTranslation } from 'react-i18next';
+import { ConfigProvider } from './contexts/ConfigContext';
 
 // Import theme constants directly from Tab2
 import { THEME_PREFERENCE_KEY, THEME_AUTO, THEME_LIGHT, THEME_DARK } from './pages/Tab2';
@@ -62,31 +63,33 @@ const App: React.FC = () => {
 
   return (
     <IonApp>
-      <IonReactRouter>
-        <IonTabs>
-          <IonRouterOutlet>
-            <Route exact path="/tab1">
-              <Tab1 />
-            </Route>
-            <Route exact path="/tab2">
-              <Tab2 />
-            </Route>
-            <Route exact path="/">
-              <Redirect to="/tab1" />
-            </Route>
-          </IonRouterOutlet>
-          <IonTabBar slot="bottom">
-            <IonTabButton tab="tab1" href="/tab1">
-              <IonIcon icon={chatbubbleEllipses} />
-              <IonLabel>{t('tabs.chat')}</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="tab2" href="/tab2">
-              <IonIcon icon={settings} />
-              <IonLabel>{t('tabs.settings')}</IonLabel>
-            </IonTabButton>
-          </IonTabBar>
-        </IonTabs>
-      </IonReactRouter>
+      <ConfigProvider>
+        <IonReactRouter>
+          <IonTabs>
+            <IonRouterOutlet>
+              <Route exact path="/tab1">
+                <Tab1 />
+              </Route>
+              <Route exact path="/tab2">
+                <Tab2 />
+              </Route>
+              <Route exact path="/">
+                <Redirect to="/tab1" />
+              </Route>
+            </IonRouterOutlet>
+            <IonTabBar slot="bottom">
+              <IonTabButton tab="tab1" href="/tab1">
+                <IonIcon icon={chatbubbleEllipses} />
+                <IonLabel>{t('tabs.chat')}</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="tab2" href="/tab2">
+                <IonIcon icon={settings} />
+                <IonLabel>{t('tabs.settings')}</IonLabel>
+              </IonTabButton>
+            </IonTabBar>
+          </IonTabs>
+        </IonReactRouter>
+      </ConfigProvider>
     </IonApp>
   );
 };

@@ -16,7 +16,7 @@ import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ChatSidebar from '../components/ChatSidebar';
 import { ChatService } from '../services/ChatService';
-import { ModelConfiguration } from '../components/api-settings/types';
+import { useConfig } from '../contexts/ConfigContext';
 
 // Define interfaces for messages and chat sessions
 interface Message {
@@ -49,55 +49,21 @@ const Tab1: React.FC = () => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // API configuration state
-  const [configs, setConfigs] = useState<ModelConfiguration[]>([]);
-  const [activeConfigId, setActiveConfigId] = useState('');
-  const [activeConfig, setActiveConfig] = useState<ModelConfiguration | null>(null);
+  // Get configuration state from context
+  const { configs, activeConfig, handleConfigChange } = useConfig();
   
   // Abort controller for stopping API requests
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load configurations and chat sessions on component mount
+  // Load chat sessions on component mount
   useEffect(() => {
-    loadConfigs();
     loadChatSessions();
-    
-    // Add event listeners for configuration changes
-    const handleConfigChange = () => {
-      loadConfigs();
-    };
-    
-    document.addEventListener('modelConfigurationsChanged', handleConfigChange);
-    document.addEventListener('activeConfigChanged', handleConfigChange);
-    
-    return () => {
-      document.removeEventListener('modelConfigurationsChanged', handleConfigChange);
-      document.removeEventListener('activeConfigChanged', handleConfigChange);
-    };
   }, []);
   
   // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [currentMessages]);
-  
-  // Load model configurations
-  const loadConfigs = async () => {
-    try {
-      const loadedConfigs = await ChatService.getModelConfigurations();
-      setConfigs(loadedConfigs);
-      
-      const configId = await ChatService.getActiveConfigId();
-      setActiveConfigId(configId);
-      
-      if (configId) {
-        const config = loadedConfigs.find(c => c.id === configId) || null;
-        setActiveConfig(config);
-      }
-    } catch (error) {
-      console.error('Failed to load configurations:', error);
-    }
-  };
   
   // Load chat sessions from storage
   const loadChatSessions = async () => {
@@ -124,18 +90,7 @@ const Tab1: React.FC = () => {
     }
   };
   
-  // Handle configuration change
-  const handleConfigChange = async (configId: string) => {
-    try {
-      await ChatService.setActiveConfigId(configId);
-      setActiveConfigId(configId);
-      
-      const config = configs.find(c => c.id === configId) || null;
-      setActiveConfig(config);
-    } catch (error) {
-      console.error('Failed to set active configuration:', error);
-    }
-  };
+
   
   // Group chat sessions by time period
   const getGroupedSessions = () => {
@@ -372,10 +327,10 @@ const Tab1: React.FC = () => {
                 <IonIcon icon={key} slot="start" />
                 {configs.length > 0 ? (
                   <IonSelect
-                    value={activeConfigId}
+                    value={activeConfig?.id}
                     onIonChange={(e) => handleConfigChange(e.detail.value)}
                     interface="popover"
-                    className="config-select"
+                    key={activeConfig ? `${activeConfig.id}-${activeConfig.name}` : 'no-config'}
                   >
                     {configs.map((config) => (
                       <IonSelectOption key={config.id} value={config.id}>

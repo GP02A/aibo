@@ -4,13 +4,13 @@ import { ModelConfiguration } from './types';
 
 interface ConfigSelectorProps {
   configs: ModelConfiguration[];
-  activeConfigId: string;
+  activeConfig: ModelConfiguration | null;
   onConfigChange: (configId: string) => void;
 }
 
 const ConfigSelector: React.FC<ConfigSelectorProps> = ({ 
   configs, 
-  activeConfigId, 
+  activeConfig, 
   onConfigChange 
 }) => {
   const { t } = useTranslation();
@@ -20,10 +20,11 @@ const ConfigSelector: React.FC<ConfigSelectorProps> = ({
       <IonLabel>{t('settings.activeConfig')}</IonLabel>
       {configs.length > 0 ? (
         <IonSelect
-          value={activeConfigId}
+          value={activeConfig?.id}
           onIonChange={(e) => onConfigChange(e.detail.value)}
           interface="popover"
           slot="end"
+          key={activeConfig ? `${activeConfig.id}-${activeConfig.name}` : 'no-config'}
         >
           {configs.map((config) => (
             <IonSelectOption key={config.id} value={config.id}>

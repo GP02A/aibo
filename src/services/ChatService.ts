@@ -125,21 +125,14 @@ export class ChatService {
     onError: (errorType: string, errorMessage: string) => void
   ): Promise<void> {
     try {
-      // Get active configuration and validate it in a single block
+      // 1. Check if there's an active configuration
       const activeConfig = await this.getActiveConfig();
       if (!activeConfig) {
-        onError('config_error', 'No active configuration found');
+        onError('no_active_config', 'Please set an active configuration before sending messages');
         return;
       }
       
-      // Validate configuration in a single block
-      if (!apiKey) {
-        onError('invalid_api_key', 'API key is required');
-        return;
-      } else if (!activeConfig.baseURL) {
-        onError('auth_error', 'Base URL is required');
-        return;
-      }
+      // We'll let the OpenAI SDK handle configuration validation errors naturally
 
       // Create OpenAI client
       const openai = new OpenAI({
@@ -157,6 +150,12 @@ export class ChatService {
       // Get advanced configuration options
       const advancedConfig = activeConfig.advancedConfig || {};
       const useStream = advancedConfig.stream === true;
+
+      // Check for abort before making the API call
+      if (abortSignal.aborted) {
+        onError('request_cancelled', 'Chat response stopped by user');
+        return;
+      }
 
       if (useStream) {
         // Create chat completion with streaming
@@ -184,20 +183,19 @@ export class ChatService {
         };
 
         // Process streaming response
-        for await (const chunk of stream) {
-          // Check if request was aborted
-          if (abortSignal.aborted) {
-            // Call onError with abort type when aborted during streaming
-            onError('abort', 'Response stopped by user');
-            return; // Exit the function early
-          }
+        try {
+          for await (const chunk of stream) {
+            // Check if request was aborted during streaming
+            if (abortSignal.aborted) {
+              onError('request_cancelled', 'Chat response stopped by user');
+              return;
+            }
 
           // Get content delta
           const content = chunk.choices[0]?.delta?.content || '';
           if (content) {
             accumulatedContent += content;
             // Only update content during streaming, don't pass incomplete token usage
-            // This prevents showing a message with zero tokens that appears blank
             onUpdate(accumulatedContent);
           }
 
@@ -210,9 +208,32 @@ export class ChatService {
             };
           }
         }
-
+        
         // Final update with token usage
         onUpdate(accumulatedContent, tokenUsage);
+        } catch (streamError: any) {
+          // Handle streaming-specific errors
+          console.error('Streaming error:', streamError);
+          
+          // Check if this was an abort/cancellation
+          if (abortSignal.aborted || 
+              streamError.name === 'AbortError' || 
+              streamError.code === 'ABORT_ERR' || 
+              streamError.message?.includes('abort') || 
+              streamError.message?.includes('cancel')) {
+            onError('request_cancelled', 'Chat response stopped by user');
+            return;
+          }
+          
+          // If we already have some content, provide it to the user with an error note
+          if (accumulatedContent) {
+            onUpdate(accumulatedContent + '\n\n[Error: Stream interrupted. ' + 
+              (streamError.message || 'Connection issue with API provider') + ']', tokenUsage);
+          } else {
+            // Otherwise, throw to be caught by the main error handler
+            throw streamError;
+          }
+        }
       } else {
         // Non-streaming request
         const response = await openai.chat.completions.create({
@@ -231,6 +252,12 @@ export class ChatService {
           signal: abortSignal
         });
 
+        // Check if request was aborted after completion
+        if (abortSignal.aborted) {
+          onError('request_cancelled', 'Chat response stopped by user');
+          return;
+        }
+
         // Get the complete response content
         const content = response.choices[0]?.message?.content || '';
         
@@ -245,22 +272,59 @@ export class ChatService {
         onUpdate(content, tokenUsage);
       }
     } catch (error: any) {
-      // Only log errors that aren't abort errors (which are expected when user cancels)
+      // Log all errors except abort errors for debugging
       if (error.name !== 'AbortError') {
         console.error('Error in sendChatRequest:', error);
       }
 
-      // Handle different error types
-      if (error.name === 'AbortError') {
-        onError('abort', 'Response stopped by user');
-      } else if (error.status === 401) {
-        onError('auth_error', 'Authentication error');
-      } else if (error.message?.includes('API key')) {
-        onError('invalid_api_key', 'Invalid API key');
-      } else if (error.message?.includes('network')) {
-        onError('network_error', 'Network error');
+      // Categorize errors into specific types for better user feedback
+      // Enhanced abort detection - check for various ways providers might indicate an aborted request
+      if (error.name === 'AbortError' || 
+          error.code === 'ABORT_ERR' || 
+          error.message?.includes('abort') || 
+          error.message?.includes('cancel') || 
+          error.message?.includes('aborted') || 
+          error.message?.toLowerCase()?.includes('user interrupt') || 
+          abortSignal.aborted) {
+        // User cancelled the request
+        onError('request_cancelled', 'Chat response stopped by user');
+      } else if (error.status === 401 || error.message?.includes('authentication') || error.message?.includes('auth') || error.message?.includes('API key')) {
+        // Authentication errors (invalid API key, expired token, etc.)
+        onError('auth_error', 'Authentication failed. Please check your API key and configuration settings.');
+      } else if (error.message?.includes('missing') && error.message?.includes('API key')) {
+        // Missing API key
+        onError('config_error', 'API key is missing. Please add your API key in the configuration settings.');
+      } else if (error.message?.includes('invalid') && error.message?.includes('API key')) {
+        // Invalid API key format
+        onError('config_error', 'Invalid API key format. Please check your API key in the configuration settings.');
+      } else if (error.message?.includes('URL') || error.message?.includes('baseURL') || error.message?.includes('endpoint')) {
+        // Base URL related errors
+        onError('config_error', 'Invalid Base URL. Please check your Base URL in the configuration settings.');
+      } else if (error.message?.includes('model') || error.message?.includes('not found') || error.message?.includes('not available')) {
+        // Model-related errors
+        onError('config_error', 'Model error. The specified model may not exist or is not available with your current plan.');
+      } else if (error.message?.includes('parameter') || error.message?.includes('invalid request')) {
+        // Parameter validation errors
+        onError('config_error', `Configuration parameter error: ${error.message}. Please check your advanced configuration settings.`);
+      } else if (error.message?.includes('network') || error.message?.includes('ECONNREFUSED') || error.message?.includes('ETIMEDOUT') || error.message?.includes('fetch')) {
+        // Network-related errors
+        onError('network_error', 'Network error. Please check your internet connection and try again.');
+      } else if (error.message?.includes('rate limit') || error.message?.includes('quota') || error.message?.includes('exceeded')) {
+        // Rate limiting or quota issues
+        onError('rate_limit_error', 'Rate limit exceeded. Please try again later or check your subscription plan.');
+      } else if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+        // Timeout errors
+        onError('timeout_error', 'Request timed out. Please try again later.');
+      } else if (error.message?.includes('content filter') || error.message?.includes('moderation') || error.message?.includes('policy')) {
+        // Content filtering/moderation issues
+        onError('content_filter_error', 'Your message was flagged by content filters. Please modify your request and try again.');
+      } else if (error.message?.includes('temperature') || error.message?.includes('top_p') || error.message?.includes('max_tokens') || 
+                error.message?.includes('frequency_penalty') || error.message?.includes('presence_penalty')) {
+        // Advanced configuration parameter errors
+        onError('config_error', `Advanced configuration error: ${error.message}. Please check your advanced settings.`);
       } else {
-        onError('unknown_error', error.message || 'Unknown error');
+        // Fallback for any other errors
+        onError('unknown_error', `An unexpected error occurred: ${error.message || 'Unknown error'}. Please check your configuration settings.`);
       }
     }
   }

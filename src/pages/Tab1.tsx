@@ -248,20 +248,33 @@ const Tab1: React.FC = () => {
               let content = '';
               
               switch (errorType) {
-                case 'abort':
-                  content = t('chat.responseStopped');
+                case 'request_cancelled':
+                  content = t('chat.errors.request_cancelled');
+                  break;
+                case 'no_active_config':
+                  content = t('chat.errors.no_active_config');
+                  break;
+                case 'config_error':
+                  content = t('chat.errors.config_error', { message: errorMessage });
                   break;
                 case 'auth_error':
-                  content = t('chat.authError');
-                  break;
-                case 'invalid_api_key':
-                  content = t('chat.invalidApiKey');
+                  content = t('chat.errors.auth_error', { message: errorMessage });
                   break;
                 case 'network_error':
-                  content = t('chat.networkError');
+                  content = t('chat.errors.network_error', { message: errorMessage });
                   break;
+                case 'rate_limit_error':
+                  content = t('chat.errors.rate_limit_error', { message: errorMessage });
+                  break;
+                case 'timeout_error':
+                  content = t('chat.errors.timeout_error', { message: errorMessage });
+                  break;
+                case 'content_filter_error':
+                  content = t('chat.errors.content_filter_error', { message: errorMessage });
+                  break;
+                case 'unknown_error':
                 default:
-                  content = `${t('chat.errorMessage')} ${errorMessage}`;
+                  content = t('chat.errors.unknown_error', { message: errorMessage });
               }
               
               newMessages[lastIndex] = {
@@ -287,6 +300,7 @@ const Tab1: React.FC = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
+      // The error handling will be done in the catch block of sendChatRequest
     }
   };
   

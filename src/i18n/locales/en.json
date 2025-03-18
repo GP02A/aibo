@@ -10,18 +10,23 @@
     "inputPlaceholder": "Type your message...",
     "send": "Send",
     "stop": "Stop",
-    "responseStopped": "Response stopped by user",
     "delete": "Delete",
-    "errorMessage": "Sorry, there was an error processing your request.",
-    "unexpectedFormat": "Sorry, I received an unexpected response format. Please try again.",
-    "invalidApiKey": "Your API key appears to be invalid. Please check your API key in Settings.",
-    "authError": "Authentication failed. Please verify your API key in Settings.",
-    "networkError": "Network error. Please check your internet connection and try again.",
-    "noApiKey": "Please set an API key in the Settings tab before sending messages.",
     "tokenUsage": "Token Usage:",
     "promptTokens": "Prompt",
     "completionTokens": "Completion",
-    "totalTokens": "Total"
+    "totalTokens": "Total",
+    
+    "errors": {
+      "request_cancelled": "Chat response stopped by user",
+      "no_active_config": "Please set an active configuration before sending messages",
+      "config_error": "Configuration error: {{message}}",
+      "auth_error": "Authentication error: {{message}}",
+      "network_error": "Network error: {{message}}",
+      "rate_limit_error": "Rate limit exceeded: {{message}}",
+      "timeout_error": "Request timed out: {{message}}",
+      "content_filter_error": "Content filter triggered: {{message}}",
+      "unknown_error": "Error: {{message}}"
+    }
   },
   "timeline": {
     "today": "Today",

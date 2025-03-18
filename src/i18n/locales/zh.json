@@ -10,18 +10,23 @@
     "inputPlaceholder": "输入消息...",
     "send": "发送",
     "stop": "停止",
-    "responseStopped": "回复已被用户停止",
     "delete": "删除",
-    "errorMessage": "抱歉，处理您的请求时出错。",
-    "unexpectedFormat": "抱歉，收到了意外的响应格式。请重试。",
-    "invalidApiKey": "您的 API 密钥似乎无效。请在设置中检查您的 API 密钥。",
-    "authError": "身份验证失败。请在设置中验证您的 API 密钥。",
-    "networkError": "网络错误。请检查您的互联网连接并重试。",
-    "noApiKey": "请在设置选项卡中设置 API 密钥，然后再发送消息。",
     "tokenUsage": "令牌用量：",
     "promptTokens": "提示",
     "completionTokens": "完成",
-    "totalTokens": "总计"
+    "totalTokens": "总计",
+    
+    "errors": {
+      "request_cancelled": "回复已被用户停止",
+      "no_active_config": "请在发送消息前设置一个活动配置",
+      "config_error": "配置错误：{{message}}",
+      "auth_error": "身份验证错误：{{message}}",
+      "network_error": "网络错误：{{message}}",
+      "rate_limit_error": "超出速率限制：{{message}}",
+      "timeout_error": "请求超时：{{message}}",
+      "content_filter_error": "内容过滤触发：{{message}}",
+      "unknown_error": "错误：{{message}}"  
+    }
   },
   "timeline": {
     "today": "今天",

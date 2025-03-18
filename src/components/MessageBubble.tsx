@@ -46,7 +46,7 @@ const MessageBubble: React.FC<MessageProps> = ({ role, content, tokenUsage, isSt
               }}
             >
               {role === 'assistant' ? (
-                <ReactMarkdown>{content || ' '}</ReactMarkdown>
+                <ReactMarkdown>{content || (isStreaming ? ' ' : '')}</ReactMarkdown>
               ) : (
                 content
               )}

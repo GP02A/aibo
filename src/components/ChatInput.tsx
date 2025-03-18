@@ -112,7 +112,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         <IonItem lines="none">
           <IonInput
             ref={inputRef}
-            fill="solid"
+            fill="outline"
             value={inputMessage}
             placeholder={t('chat.inputPlaceholder')}
             onIonInput={e => setInputMessage(e.detail.value || '')}

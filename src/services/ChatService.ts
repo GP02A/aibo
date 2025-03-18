@@ -188,7 +188,7 @@ export class ChatService {
           // Check if request was aborted
           if (abortSignal.aborted) {
             // Call onError with abort type when aborted during streaming
-            onError('abort', 'Request was aborted');
+            onError('abort', 'Response stopped by user');
             return; // Exit the function early
           }
 
@@ -252,7 +252,7 @@ export class ChatService {
 
       // Handle different error types
       if (error.name === 'AbortError') {
-        onError('abort', 'Request was aborted');
+        onError('abort', 'Response stopped by user');
       } else if (error.status === 401) {
         onError('auth_error', 'Authentication error');
       } else if (error.message?.includes('API key')) {

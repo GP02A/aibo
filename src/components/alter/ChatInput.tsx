@@ -58,23 +58,28 @@ const ChatInput: React.FC<ChatInputProps> = ({
       });
     };
 
+    // Store event listeners in variables so we can properly remove them
+    const keyboardShowListener = handleKeyboardDidShow as EventListener;
+    const keyboardHideListener = handleKeyboardDidHide as EventListener;
+
     window.addEventListener(
       "ionKeyboardDidShow",
-      handleKeyboardDidShow as EventListener
+      keyboardShowListener
     );
     window.addEventListener(
       "ionKeyboardDidHide",
-      handleKeyboardDidHide as EventListener
+      keyboardHideListener
     );
 
     return () => {
+      // Use the stored references to ensure we remove the exact same listeners
       window.removeEventListener(
         "ionKeyboardDidShow",
-        handleKeyboardDidShow as EventListener
+        keyboardShowListener
       );
       window.removeEventListener(
         "ionKeyboardDidHide",
-        handleKeyboardDidHide as EventListener
+        keyboardHideListener
       );
     };
   }, []);

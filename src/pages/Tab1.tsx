@@ -18,7 +18,6 @@ import { ChatService } from '../services/ChatService';
 import { useConfig } from '../contexts/ConfigContext';
 import { throttle } from '../utils';
 
-
 // Storage key for chat sessions
 const CHAT_SESSIONS_STORAGE = 'chat_sessions';
 
@@ -62,14 +61,22 @@ const Tab1: React.FC = () => {
   
   // Scroll to bottom when messages change
   useLayoutEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    
     if (currentMessages.length > 0) {
       // Add a small delay to ensure DOM is fully updated
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         scrollToBottom();
       }, 50);
     }
+    
+    // Cleanup function to clear the timeout if component unmounts
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [currentMessages]);
-  
   
   // Load chat sessions from storage
   const loadChatSessions = async () => {
@@ -95,8 +102,6 @@ const Tab1: React.FC = () => {
       console.error('Failed to save chat sessions:', error);
     }
   };
-  
-
   
   // Group chat sessions by time period
   const getGroupedSessions = () => {
@@ -193,7 +198,6 @@ const Tab1: React.FC = () => {
     await saveChatSessions(updatedSessions);
   };
   
-
   // Send a message to the AI
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -347,6 +351,15 @@ const Tab1: React.FC = () => {
     }, 100),
     []
   );
+  // Cleanup any pending requests when component unmounts
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <IonPage>

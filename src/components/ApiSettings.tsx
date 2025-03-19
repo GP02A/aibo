@@ -74,10 +74,13 @@ const ApiSettings: React.FC = () => {
         await handleConfigChange(updatedConfigs[0].id);
       }
 
+      // Close the modal first before any potential state updates
       setShowDeleteConfirm(false);
       setEditingConfig(null);
     } catch (error) {
       console.error('Failed to delete configuration:', error);
+      // Still close the modal on error
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -103,6 +106,10 @@ const ApiSettings: React.FC = () => {
         updatedConfigs = [...configs, config];
       }
       
+      // First close the modal before any async operations
+      setShowAddEditModal(false);
+      
+      // Then perform the async operations
       await saveConfigs(updatedConfigs);
       
       // If there's no active configuration or we're adding the first configuration,
@@ -111,10 +118,13 @@ const ApiSettings: React.FC = () => {
         await handleConfigChange(config.id);
       }
       
-      setShowAddEditModal(false);
+      // Finally, clear the editing state
       setEditingConfig(null);
     } catch (error) {
       console.error('Failed to save configuration:', error);
+      // Make sure to close the modal even if there's an error
+      setShowAddEditModal(false);
+      setEditingConfig(null);
     }
   };
 

@@ -67,13 +67,30 @@ const ChatInput: React.FC<ChatInputProps> = ({
         }
       };
       
+      // Execute the setup function but don't await its result here
+      // This prevents issues with the async nature of the setup function
       setupKeyboardListeners();
       
       // Clean up event listeners when component unmounts
       return () => {
-        Keyboard.removeAllListeners().catch(err => {
-          console.error('Error removing keyboard listeners:', err);
-        });
+        // Use a synchronous cleanup approach to avoid message channel issues
+        try {
+          // Instead of calling removeAllListeners directly, which returns a promise
+          // that might not complete before the component is unmounted,
+          // we'll use a more controlled approach
+          const cleanup = async () => {
+            try {
+              await Keyboard.removeAllListeners();
+            } catch (err) {
+              console.error('Error removing keyboard listeners:', err);
+            }
+          };
+          
+          // Start the cleanup but don't wait for it to complete in the unmount function
+          cleanup();
+        } catch (error) {
+          console.error('Cleanup error:', error);
+        }
       };
     } else {
       // Web implementation using DOM events

@@ -31,17 +31,34 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
 
   // Load configurations on component mount
   useEffect(() => {
-    loadConfigs();
+    let isMounted = true;
+    
+    // Load initial configurations
+    const initializeConfigs = async () => {
+      try {
+        if (isMounted) {
+          await loadConfigs();
+        }
+      } catch (error) {
+        console.error('Failed to initialize configurations:', error);
+      }
+    };
+    
+    initializeConfigs();
     
     // Add event listeners for configuration changes
     const handleConfigChangeEvent = () => {
-      loadConfigs();
+      if (isMounted) {
+        loadConfigs();
+      }
     };
     
     document.addEventListener('modelConfigurationsChanged', handleConfigChangeEvent);
     document.addEventListener('activeConfigChanged', handleConfigChangeEvent);
     
+    // Cleanup function to remove event listeners and prevent state updates after unmount
     return () => {
+      isMounted = false;
       document.removeEventListener('modelConfigurationsChanged', handleConfigChangeEvent);
       document.removeEventListener('activeConfigChanged', handleConfigChangeEvent);
     };

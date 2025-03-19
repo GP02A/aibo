@@ -1,15 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 import OpenAI from 'openai';
+import i18n from '../i18n';
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  tokenUsage?: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  };
-}
 
 // Import the ExtendedModelConfiguration interface from types
 import { ModelConfiguration } from '../components/api-settings/types';
@@ -117,214 +109,201 @@ export class ChatService {
   }
 
   // Send chat request to the API
-  static async sendChatRequest(
-    apiKey: string,
-    messages: Message[],
-    abortSignal: AbortSignal,
-    onUpdate: (content: string, tokenUsage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number }) => void,
-    onError: (errorType: string, errorMessage: string) => void
-  ): Promise<void> {
+  static async sendChatRequest({
+    messages,
+    config,
+    onUpdate,
+    onComplete,
+    onError,
+    onTokenUsage,
+    signal
+  }: {
+    messages: { role: 'user' | 'assistant'; content: string }[];
+    config: ModelConfiguration;
+    onUpdate?: (content: string) => void;
+    onComplete?: (content: string) => void;
+    onError?: (error: any) => void;
+    onTokenUsage?: (usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number }) => void;
+    signal?: AbortSignal;
+  }) {
+    // Declare variables that need to be accessed in both try and catch blocks
+    let isStreaming = false;
+    let fullContent = '';
+    
     try {
-      // 1. Check if there's an active configuration
-      const activeConfig = await this.getActiveConfig();
-      if (!activeConfig) {
-        onError('no_active_config', 'Please set an active configuration before sending messages');
-        return;
+      // Validate configuration
+      if (!config) {
+        throw new Error('no_active_config');
       }
-      
-      // We'll let the OpenAI SDK handle configuration validation errors naturally
 
-      // Create OpenAI client
+      if (!config.apiKey) {
+        throw new Error('API key is required');
+      }
+
+      // Create OpenAI client with the provided configuration
       const openai = new OpenAI({
-        apiKey: apiKey,
-        baseURL: activeConfig.baseURL,
+        apiKey: config.apiKey,
+        baseURL: config.baseURL,
         dangerouslyAllowBrowser: true // Allow browser usage
       });
 
-      // Format messages for OpenAI API
-      const formattedMessages = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
+      // Determine if streaming is enabled
+      isStreaming = config.advancedConfig?.stream === true;
 
-      // Get advanced configuration options
-      const advancedConfig = activeConfig.advancedConfig || {};
-      const useStream = advancedConfig.stream === true;
+      // Prepare request parameters
+      const requestParams = {
+        model: config.model,
+        messages: messages.map(msg => ({ role: msg.role, content: msg.content })),
+        temperature: config.advancedConfig?.temperature,
+        top_p: config.advancedConfig?.top_p,
+        frequency_penalty: config.advancedConfig?.frequency_penalty,
+        presence_penalty: config.advancedConfig?.presence_penalty,
+        max_tokens: config.advancedConfig?.max_tokens,
+        stream: isStreaming
+      };
 
-      // Check for abort before making the API call
-      if (abortSignal.aborted) {
-        onError('request_cancelled', 'Chat response stopped by user');
+      if (isStreaming) {
+        // Handle streaming response
+        fullContent = ''; // Use the outer variable instead of declaring a new one
+        let wasAborted = false;
+        const stream = await openai.chat.completions.create({
+          ...requestParams,
+          stream: true
+        }, { signal });
+
+        for await (const chunk of stream) {
+          // Check if the request was aborted
+          if (signal?.aborted) {
+            wasAborted = true;
+            break;
+          }
+
+          const content = chunk.choices[0]?.delta?.content || '';
+          fullContent += content;
+          
+          // Call the update callback with the current content
+          if (onUpdate) {
+            onUpdate(fullContent);
+          }
+        }
+
+        // If the request was aborted, add a cancellation message
+        if (wasAborted) {
+          // Add a divider if there's already content
+          const cancellationMessage = fullContent.length > 0 ? 
+            `\n\n---\n\n${i18n.t('chat.errors.request_cancelled')}` : 
+            i18n.t('chat.errors.request_cancelled');
+          
+          fullContent += cancellationMessage;
+          
+          // Update the UI with the cancellation message
+          if (onUpdate) {
+            onUpdate(fullContent);
+          }
+        }
+
+        // Even if not aborted during streaming, check again before completing
+        // This handles cases where abort happens between the end of streaming and completion
+        if (signal?.aborted && !wasAborted) {
+          // Add a divider if there's already content
+          const cancellationMessage = fullContent.length > 0 ? 
+            `\n\n---\n\n${i18n.t('chat.errors.request_cancelled')}` : 
+            i18n.t('chat.errors.request_cancelled');
+          
+          fullContent += cancellationMessage;
+          
+          // Update the UI with the cancellation message
+          if (onUpdate) {
+            onUpdate(fullContent);
+          }
+        }
+
+        // Call the complete callback with the final content
+        if (onComplete) {
+          onComplete(fullContent);
+        }
+
+        // Check if the stream response contains usage information (newer API versions may include this)
+        // Only call onTokenUsage if we have actual usage data from the API
+        if (onTokenUsage && !signal?.aborted && 'usage' in stream) {
+          const usage = (stream as any).usage;
+          if (usage) {
+            onTokenUsage({
+              promptTokens: usage.prompt_tokens,
+              completionTokens: usage.completion_tokens,
+              totalTokens: usage.total_tokens
+            });
+          }
+        }
+        // Note: We no longer make an additional API call to get token usage for streaming responses
+        // as newer API versions may include this data directly in the streaming response
+      } else {
+        // Handle non-streaming response
+        const response = await openai.chat.completions.create({
+          ...requestParams,
+          stream: false
+        }, { signal });
+
+        const content = response.choices[0]?.message?.content || '';
+        
+        // Call the complete callback with the final content
+        if (onComplete) {
+          onComplete(content);
+        }
+
+        // Get token usage if available
+        if (onTokenUsage && response.usage) {
+          onTokenUsage({
+            promptTokens: response.usage.prompt_tokens,
+            completionTokens: response.usage.completion_tokens,
+            totalTokens: response.usage.total_tokens
+          });
+        }
+      }
+    } catch (error: any) {
+      // Handle errors
+      if (signal?.aborted) {
+        // If the request was aborted by the user, we need to ensure the cancellation message is shown
+        console.log('Request was cancelled by user');
+        
+        // For streaming responses, we might need to add the cancellation message here as well
+        // in case the abort happened after the for-await loop but before completion
+        if (isStreaming && onUpdate) {
+          // Get the current content if available (from closure)
+          // We need to append to existing content rather than just sending the message alone
+          const cancellationMessage = fullContent && fullContent.length > 0 ?
+            fullContent + `\n\n---\n\n${i18n.t('chat.errors.request_cancelled')}` :
+            i18n.t('chat.errors.request_cancelled');
+          onUpdate(cancellationMessage);
+        }
         return;
       }
 
-      if (useStream) {
-        // Create chat completion with streaming
-        const stream = await openai.chat.completions.create({
-          model: activeConfig.model,
-          messages: formattedMessages,
-          stream: true,
-          temperature: advancedConfig.temperature,
-          max_tokens: advancedConfig.max_tokens,
-          top_p: advancedConfig.top_p,
-          frequency_penalty: advancedConfig.frequency_penalty,
-          presence_penalty: advancedConfig.presence_penalty,
-          ...(advancedConfig.stop && { stop: advancedConfig.stop }),
-          ...(advancedConfig.logit_bias && { logit_bias: advancedConfig.logit_bias }),
-          ...(advancedConfig.user && { user: advancedConfig.user }),
-        }, {
-          signal: abortSignal
-        });
-
-        let accumulatedContent = '';
-        let tokenUsage = {
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0
-        };
-
-        // Process streaming response
-        try {
-          for await (const chunk of stream) {
-            // Check if request was aborted during streaming
-            if (abortSignal.aborted) {
-              onError('request_cancelled', 'Chat response stopped by user');
-              return;
-            }
-
-          // Get content delta
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            accumulatedContent += content;
-            // Only update content during streaming, don't pass incomplete token usage
-            onUpdate(accumulatedContent);
-          }
-
-          // Update token usage if available
-          if (chunk.usage) {
-            tokenUsage = {
-              promptTokens: chunk.usage.prompt_tokens,
-              completionTokens: chunk.usage.completion_tokens,
-              totalTokens: chunk.usage.total_tokens
-            };
-          }
-        }
-        
-        // Final update with token usage
-        onUpdate(accumulatedContent, tokenUsage);
-        } catch (streamError: any) {
-          // Handle streaming-specific errors
-          console.error('Streaming error:', streamError);
-          
-          // Check if this was an abort/cancellation
-          if (abortSignal.aborted || 
-              streamError.name === 'AbortError' || 
-              streamError.code === 'ABORT_ERR' || 
-              streamError.message?.includes('abort') || 
-              streamError.message?.includes('cancel')) {
-            onError('request_cancelled', 'Chat response stopped by user');
-            return;
-          }
-          
-          // If we already have some content, provide it to the user with an error note
-          if (accumulatedContent) {
-            onUpdate(accumulatedContent + '\n\n[Error: Stream interrupted. ' + 
-              (streamError.message || 'Connection issue with API provider') + ']', tokenUsage);
-          } else {
-            // Otherwise, throw to be caught by the main error handler
-            throw streamError;
-          }
-        }
-      } else {
-        // Non-streaming request
-        const response = await openai.chat.completions.create({
-          model: activeConfig.model,
-          messages: formattedMessages,
-          stream: false,
-          temperature: advancedConfig.temperature,
-          max_tokens: advancedConfig.max_tokens,
-          top_p: advancedConfig.top_p,
-          frequency_penalty: advancedConfig.frequency_penalty,
-          presence_penalty: advancedConfig.presence_penalty,
-          ...(advancedConfig.stop && { stop: advancedConfig.stop }),
-          ...(advancedConfig.logit_bias && { logit_bias: advancedConfig.logit_bias }),
-          ...(advancedConfig.user && { user: advancedConfig.user }),
-        }, {
-          signal: abortSignal
-        });
-
-        // Check if request was aborted after completion
-        if (abortSignal.aborted) {
-          onError('request_cancelled', 'Chat response stopped by user');
-          return;
-        }
-
-        // Get the complete response content
-        const content = response.choices[0]?.message?.content || '';
-        
-        // Get token usage if available
-        const tokenUsage = response.usage ? {
-          promptTokens: response.usage.prompt_tokens,
-          completionTokens: response.usage.completion_tokens,
-          totalTokens: response.usage.total_tokens
-        } : undefined;
-
-        // Send the complete response at once
-        onUpdate(content, tokenUsage);
+      // Handle other errors
+      console.error('Chat request error:', error);
+      
+      // Determine error type
+      let errorType = 'unknown_error';
+      const errorMessage = error.message || 'Unknown error';
+      
+      if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
+        errorType = 'auth_error';
+      } else if (errorMessage.includes('network') || errorMessage.includes('connect')) {
+        errorType = 'network_error';
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+        errorType = 'rate_limit_error';
+      } else if (errorMessage.includes('timeout')) {
+        errorType = 'timeout_error';
+      } else if (errorMessage.includes('content filter') || errorMessage.includes('moderation')) {
+        errorType = 'content_filter_error';
+      } else if (errorMessage === 'no_active_config') {
+        errorType = 'no_active_config';
+      } else if (errorMessage.includes('config')) {
+        errorType = 'config_error';
       }
-    } catch (error: any) {
-      // Log all errors except abort errors for debugging
-      if (error.name !== 'AbortError') {
-        console.error('Error in sendChatRequest:', error);
-      }
-
-      // Categorize errors into specific types for better user feedback
-      // Enhanced abort detection - check for various ways providers might indicate an aborted request
-      if (error.name === 'AbortError' || 
-          error.code === 'ABORT_ERR' || 
-          error.message?.includes('abort') || 
-          error.message?.includes('cancel') || 
-          error.message?.includes('aborted') || 
-          error.message?.toLowerCase()?.includes('user interrupt') || 
-          abortSignal.aborted) {
-        // User cancelled the request
-        onError('request_cancelled', 'Chat response stopped by user');
-      } else if (error.status === 401 || error.message?.includes('authentication') || error.message?.includes('auth') || error.message?.includes('API key')) {
-        // Authentication errors (invalid API key, expired token, etc.)
-        onError('auth_error', 'Authentication failed. Please check your API key and configuration settings.');
-      } else if (error.message?.includes('missing') && error.message?.includes('API key')) {
-        // Missing API key
-        onError('config_error', 'API key is missing. Please add your API key in the configuration settings.');
-      } else if (error.message?.includes('invalid') && error.message?.includes('API key')) {
-        // Invalid API key format
-        onError('config_error', 'Invalid API key format. Please check your API key in the configuration settings.');
-      } else if (error.message?.includes('URL') || error.message?.includes('baseURL') || error.message?.includes('endpoint')) {
-        // Base URL related errors
-        onError('config_error', 'Invalid Base URL. Please check your Base URL in the configuration settings.');
-      } else if (error.message?.includes('model') || error.message?.includes('not found') || error.message?.includes('not available')) {
-        // Model-related errors
-        onError('config_error', 'Model error. The specified model may not exist or is not available with your current plan.');
-      } else if (error.message?.includes('parameter') || error.message?.includes('invalid request')) {
-        // Parameter validation errors
-        onError('config_error', `Configuration parameter error: ${error.message}. Please check your advanced configuration settings.`);
-      } else if (error.message?.includes('network') || error.message?.includes('ECONNREFUSED') || error.message?.includes('ETIMEDOUT') || error.message?.includes('fetch')) {
-        // Network-related errors
-        onError('network_error', 'Network error. Please check your internet connection and try again.');
-      } else if (error.message?.includes('rate limit') || error.message?.includes('quota') || error.message?.includes('exceeded')) {
-        // Rate limiting or quota issues
-        onError('rate_limit_error', 'Rate limit exceeded. Please try again later or check your subscription plan.');
-      } else if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
-        // Timeout errors
-        onError('timeout_error', 'Request timed out. Please try again later.');
-      } else if (error.message?.includes('content filter') || error.message?.includes('moderation') || error.message?.includes('policy')) {
-        // Content filtering/moderation issues
-        onError('content_filter_error', 'Your message was flagged by content filters. Please modify your request and try again.');
-      } else if (error.message?.includes('temperature') || error.message?.includes('top_p') || error.message?.includes('max_tokens') || 
-                error.message?.includes('frequency_penalty') || error.message?.includes('presence_penalty')) {
-        // Advanced configuration parameter errors
-        onError('config_error', `Advanced configuration error: ${error.message}. Please check your advanced settings.`);
-      } else {
-        // Fallback for any other errors
-        onError('unknown_error', `An unexpected error occurred: ${error.message || 'Unknown error'}. Please check your configuration settings.`);
+      
+      if (onError) {
+        onError({ type: errorType, message: errorMessage });
       }
     }
   }

@@ -4,9 +4,8 @@ import {
   IonMenu, IonMenuToggle, IonIcon, IonText, IonSelect, IonSelectOption
 } from '@ionic/react';
 import {
-  useState, useEffect, useRef, useCallback
+  useState, useEffect, useRef, useCallback, useLayoutEffect
 } from 'react';
-import { throttle } from 'lodash-es';
 import { Preferences } from '@capacitor/preferences';
 import { chatbubbleEllipses, key } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
@@ -17,8 +16,13 @@ import ChatInput from '../components/ChatInput';
 import ChatSidebar from '../components/ChatSidebar';
 import { ChatService } from '../services/ChatService';
 import { useConfig } from '../contexts/ConfigContext';
+import { throttle } from '../utils';
 
-// Define interfaces for messages and chat sessions
+
+// Storage key for chat sessions
+const CHAT_SESSIONS_STORAGE = 'chat_sessions';
+
+// Define Message interface
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -29,6 +33,7 @@ interface Message {
   };
 }
 
+// Define ChatSession interface
 interface ChatSession {
   id: string;
   title: string;
@@ -36,34 +41,35 @@ interface ChatSession {
   timestamp: number;
 }
 
-// Storage key for chat sessions
-const CHAT_SESSIONS_STORAGE = 'chat_sessions';
-
 const Tab1: React.FC = () => {
   const { t } = useTranslation();
-  const contentRef = useRef<HTMLIonContentElement>(null);
-  
-  // Chat state
-  const [inputMessage, setInputMessage] = useState('');
-  const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Get configuration state from context
   const { configs, activeConfig, handleConfigChange } = useConfig();
   
-  // Abort controller for stopping API requests
+  // State for chat messages and sessions
+  const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Refs
+  const contentRef = useRef<HTMLIonContentElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-
+  
   // Load chat sessions on component mount
   useEffect(() => {
     loadChatSessions();
   }, []);
   
   // Scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
+  useLayoutEffect(() => {
+    if (currentMessages.length > 0) {
+      // Add a small delay to ensure DOM is fully updated
+      setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+    }
   }, [currentMessages]);
+  
   
   // Load chat sessions from storage
   const loadChatSessions = async () => {
@@ -187,109 +193,120 @@ const Tab1: React.FC = () => {
     await saveChatSessions(updatedSessions);
   };
   
-  // Send a message to the API
+
+  // Send a message to the AI
   const sendMessage = async () => {
-    if (!inputMessage.trim()) return;
-    if (!activeConfig || !activeConfig.apiKey) {
-      // Show error message if no API key is set
+    if (!inputMessage.trim() || isLoading) return;
+    
+    // Create a new user message
+    const userMessage: Message = {
+      role: 'user',
+      content: inputMessage.trim()
+    };
+    
+    // Add user message to the current messages
+    const updatedMessages = [...currentMessages, userMessage];
+    setCurrentMessages(updatedMessages);
+    
+    // Clear input
+    setInputMessage('');
+    
+    // Check if there's an active configuration
+    if (!activeConfig) {
+      // Add an error message
       const errorMessage: Message = {
         role: 'assistant',
-        content: t('chat.noApiKey')
+        content: t('chat.errors.no_active_config')
       };
-      setCurrentMessages([...currentMessages, { role: 'user', content: inputMessage }, errorMessage]);
-      setInputMessage('');
+      setCurrentMessages([...updatedMessages, errorMessage]);
       return;
     }
     
-    // Add user message to the chat
-    const userMessage: Message = { role: 'user', content: inputMessage };
-    const assistantMessage: Message = { role: 'assistant', content: t('chat.thinking') };
+    // Create a placeholder for the assistant's response
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: t('chat.thinking')
+    };
     
-    setCurrentMessages([...currentMessages, userMessage, assistantMessage]);
-    setInputMessage('');
+    // Add the placeholder message
+    setCurrentMessages([...updatedMessages, assistantMessage]);
+    
+    // Set loading state
     setIsLoading(true);
     
-    // Create a new AbortController for this request
+    // Create an AbortController for cancellation
     abortControllerRef.current = new AbortController();
     
     try {
-      // Prepare messages for the API
-      const messagesToSend = [...currentMessages, userMessage];
-      
       // Send the request to the API
-      await ChatService.sendChatRequest(
-        activeConfig.apiKey,
-        messagesToSend,
-        abortControllerRef.current.signal,
-        // Update callback
-        (content, tokenUsage) => {
-          setCurrentMessages(prevMessages => {
-            const newMessages = [...prevMessages];
-            const lastIndex = newMessages.length - 1;
-            
-            if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
-              newMessages[lastIndex] = {
-                role: 'assistant',
-                content,
-                tokenUsage
-              };
-            }
-            
-            return newMessages;
-          });
-        },
-        // Error callback
-        (errorType, errorMessage) => {
-          setCurrentMessages(prevMessages => {
-            const newMessages = [...prevMessages];
-            const lastIndex = newMessages.length - 1;
-            
-            if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
-              let content = '';
-              
-              switch (errorType) {
-                case 'request_cancelled':
-                  content = t('chat.errors.request_cancelled');
-                  break;
-                case 'no_active_config':
-                  content = t('chat.errors.no_active_config');
-                  break;
-                case 'config_error':
-                  content = t('chat.errors.config_error', { message: errorMessage });
-                  break;
-                case 'auth_error':
-                  content = t('chat.errors.auth_error', { message: errorMessage });
-                  break;
-                case 'network_error':
-                  content = t('chat.errors.network_error', { message: errorMessage });
-                  break;
-                case 'rate_limit_error':
-                  content = t('chat.errors.rate_limit_error', { message: errorMessage });
-                  break;
-                case 'timeout_error':
-                  content = t('chat.errors.timeout_error', { message: errorMessage });
-                  break;
-                case 'content_filter_error':
-                  content = t('chat.errors.content_filter_error', { message: errorMessage });
-                  break;
-                case 'unknown_error':
-                default:
-                  content = t('chat.errors.unknown_error', { message: errorMessage });
-              }
-              
-              newMessages[lastIndex] = {
-                role: 'assistant',
+      await ChatService.sendChatRequest({
+        messages: updatedMessages,
+        config: activeConfig,
+        onUpdate: (content) => {
+          // Update the assistant's message with the streaming content
+          setCurrentMessages(prev => {
+            const updated = [...prev];
+            if (updated.length > 0) {
+              updated[updated.length - 1] = {
+                ...updated[updated.length - 1],
                 content
               };
             }
-            
-            return newMessages;
+            return updated;
           });
-        }
-      );
+        },
+        onComplete: (content) => {
+          // Update the assistant's message with the final content
+          setCurrentMessages(prev => {
+            const updated = [...prev];
+            if (updated.length > 0) {
+              updated[updated.length - 1] = {
+                ...updated[updated.length - 1],
+                content
+              };
+            }
+            return updated;
+          });
+          setIsLoading(false);
+          abortControllerRef.current = null;
+        },
+        onError: (error) => {
+          // Handle errors
+          const errorMessage = error.type 
+            ? t(`chat.errors.${error.type}`, { message: error.message })
+            : t('chat.errors.unknown_error', { message: error.message });
+          
+          // Update the assistant's message with the error
+          setCurrentMessages(prev => {
+            const updated = [...prev];
+            if (updated.length > 0) {
+              updated[updated.length - 1] = {
+                ...updated[updated.length - 1],
+                content: errorMessage
+              };
+            }
+            return updated;
+          });
+          setIsLoading(false);
+          abortControllerRef.current = null;
+        },
+        onTokenUsage: (usage) => {
+          // Update the assistant's message with token usage information
+          setCurrentMessages(prev => {
+            const updated = [...prev];
+            if (updated.length > 0) {
+              updated[updated.length - 1] = {
+                ...updated[updated.length - 1],
+                tokenUsage: usage
+              };
+            }
+            return updated;
+          });
+        },
+        signal: abortControllerRef.current.signal
+      });
     } catch (error) {
       console.error('Error sending message:', error);
-    } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
     }
@@ -298,9 +315,26 @@ const Tab1: React.FC = () => {
   // Stop the current response
   const stopResponse = () => {
     if (abortControllerRef.current) {
+      // Abort the request
       abortControllerRef.current.abort();
+      
+      // Update the current message to indicate it was stopped by the user
+      setCurrentMessages(prev => {
+        const updated = [...prev];
+        if (updated.length > 0 && updated[updated.length - 1].role === 'assistant') {
+          const lastMessage = updated[updated.length - 1];
+          // Append a note that the response was stopped
+          updated[updated.length - 1] = {
+            ...lastMessage,
+            content: lastMessage.content + '\n\n_' + t('chat.errors.request_cancelled') + '_'
+          };
+        }
+        return updated;
+      });
+      
+      // Reset loading state
+      setIsLoading(false);
       abortControllerRef.current = null;
-      // The error handling will be done in the catch block of sendChatRequest
     }
   };
   
@@ -311,7 +345,7 @@ const Tab1: React.FC = () => {
         contentRef.current.scrollToBottom(300);
       }
     }, 100),
-    [currentMessages]
+    []
   );
 
   return (

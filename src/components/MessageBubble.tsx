@@ -46,7 +46,7 @@ const MessageBubble: React.FC<MessageProps> = ({ role, content, tokenUsage, isSt
               }}
             >
               {role === 'assistant' ? (
-                <ReactMarkdown>{content || (isStreaming ? ' ' : '')}</ReactMarkdown>
+                <ReactMarkdown>{content || (isStreaming ? t('chat.thinking') : '')}</ReactMarkdown>
               ) : (
                 content
               )}
@@ -58,8 +58,9 @@ const MessageBubble: React.FC<MessageProps> = ({ role, content, tokenUsage, isSt
             )}
           </div>
           
-          {/* Token usage information with proper alignment - only show when not streaming */}
-          {role === 'assistant' && tokenUsage && !isStreaming && (
+          {/* Token usage information - only show when not streaming and when we have actual token data */}
+          {role === 'assistant' && tokenUsage && (isStreaming === false) && 
+           (tokenUsage.promptTokens !== undefined || tokenUsage.completionTokens !== undefined || tokenUsage.totalTokens !== undefined) && (
             <div className="ion-padding-start" style={{ 
               display: 'flex', 
               justifyContent: 'flex-start',

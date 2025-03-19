@@ -166,9 +166,12 @@ export class ChatService {
         // Handle streaming response
         fullContent = ''; // Use the outer variable instead of declaring a new one
         let wasAborted = false;
+        let lastChunk: any = null;
+        
         const stream = await openai.chat.completions.create({
           ...requestParams,
-          stream: true
+          stream: true,
+          stream_options: {"include_usage": true} // Add stream_options to retrieve token usage for stream response
         }, { signal });
 
         for await (const chunk of stream) {
@@ -177,13 +180,20 @@ export class ChatService {
             wasAborted = true;
             break;
           }
-
-          const content = chunk.choices[0]?.delta?.content || '';
-          fullContent += content;
           
-          // Call the update callback with the current content
-          if (onUpdate) {
-            onUpdate(fullContent);
+          // Store the current chunk as the last chunk to capture usage data
+          lastChunk = chunk;
+          
+          // Only process content if this chunk has content (not the final usage-only chunk)
+          // The final chunk with usage data will have an empty choices array
+          if (chunk.choices && chunk.choices.length > 0 && chunk.choices[0]?.delta?.content) {
+            const content = chunk.choices[0].delta.content;
+            fullContent += content;
+            
+            // Call the update callback with the current content
+            if (onUpdate) {
+              onUpdate(fullContent);
+            }
           }
         }
 
@@ -223,20 +233,18 @@ export class ChatService {
           onComplete(fullContent);
         }
 
-        // Check if the stream response contains usage information (newer API versions may include this)
-        // Only call onTokenUsage if we have actual usage data from the API
-        if (onTokenUsage && !signal?.aborted && 'usage' in stream) {
-          const usage = (stream as any).usage;
-          if (usage) {
-            onTokenUsage({
-              promptTokens: usage.prompt_tokens,
-              completionTokens: usage.completion_tokens,
-              totalTokens: usage.total_tokens
-            });
-          }
+        // After streaming is complete, check if we have usage data in the last chunk
+        // When using stream_options: {"include_usage": true}, the final chunk contains usage data
+        // The final chunk will have an empty choices array and usage data in the usage field
+        if (onTokenUsage && !signal?.aborted && lastChunk && lastChunk.usage) {
+          onTokenUsage({
+            promptTokens: lastChunk.usage.prompt_tokens,
+            completionTokens: lastChunk.usage.completion_tokens,
+            totalTokens: lastChunk.usage.total_tokens
+          });
         }
-        // Note: We no longer make an additional API call to get token usage for streaming responses
-        // as newer API versions may include this data directly in the streaming response
+        // Note: With stream_options: {"include_usage": true}, the final chunk will have
+        // an empty choices array and contain the usage data for the entire request
       } else {
         // Handle non-streaming response
         const response = await openai.chat.completions.create({

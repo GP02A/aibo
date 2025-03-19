@@ -381,10 +381,9 @@ const Tab1: React.FC = () => {
                   <IonIcon slot="icon-only" icon={chatbubbleEllipses} />
                 </IonButton>
               </IonMenuToggle>
-              <IonTitle>{t('app.title')}</IonTitle>
               
               {/* Add configuration selector */}
-              <IonItem slot="end" lines="none" className="config-selector">
+              <IonItem lines="none" className="config-selector">
                 <IonIcon icon={key} slot="start" />
                 {configs.length > 0 ? (
                   <IonSelect

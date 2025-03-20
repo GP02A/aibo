@@ -48,7 +48,7 @@ const MessageBubble: React.FC<MessageProps> = ({ role, content, tokenUsage, isSt
               {role === 'assistant' ? (
                 <ReactMarkdown>{content || (isStreaming ? t('chat.thinking') : '')}</ReactMarkdown>
               ) : (
-                content
+                <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>
               )}
             </div>
             

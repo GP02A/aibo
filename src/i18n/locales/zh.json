@@ -11,6 +11,7 @@
     "send": "发送",
     "stop": "停止",
     "delete": "删除",
+    "saveAndNewChat": "保存并开始新对话",
     "tokenUsage": "令牌用量：",
     "promptTokens": "提示",
     "completionTokens": "完成",

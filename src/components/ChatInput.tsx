@@ -1,4 +1,4 @@
-import { IonInput, IonItem, IonButton, IonToolbar } from '@ionic/react';
+import { IonItem, IonButton, IonToolbar, IonTextarea } from '@ionic/react';
 import { useTranslation } from 'react-i18next';
 import { useRef, useEffect } from 'react';
 import { Keyboard } from '@capacitor/keyboard';
@@ -20,7 +20,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   isLoading 
 }) => {
   const { t } = useTranslation();
-  const inputRef = useRef<HTMLIonInputElement>(null);
+  const inputRef = useRef<HTMLIonTextareaElement>(null);
   const toolbarRef = useRef<HTMLIonToolbarElement>(null);
 
   useEffect(() => {
@@ -125,38 +125,37 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <IonToolbar ref={toolbarRef} className="chat-input-toolbar">
-      {/* <div className="ion-padding-horizontal ion-margin-vertical"> */}
-        <IonItem>
-          <IonInput
-            ref={inputRef}
-            // fill="outline"
-            value={inputMessage}
-            placeholder={t('chat.inputPlaceholder')}
-            onIonInput={e => setInputMessage(e.detail.value || '')}
-            onKeyDown={handleKeyDown}
-            clearInput={true}
-          />
-          {isLoading ? (
-            <IonButton
-              slot="end"
-              onClick={stopResponse}
-              color="danger"
-              size="default"
-            >
-              {t('chat.stop')}
-            </IonButton>
-          ) : (
-            <IonButton
-              slot="end"
-              onClick={sendMessage}
-              disabled={!inputMessage.trim()}
-              size="default"
-            >
-              {t('chat.send')}
-            </IonButton>
-          )}
-        </IonItem>
-      {/* </div> */}
+      <IonItem>
+        <IonTextarea
+          ref={inputRef}
+          value={inputMessage}
+          placeholder={t('chat.inputPlaceholder')}
+          onIonInput={e => setInputMessage(e.detail.value || '')}
+          onKeyDown={handleKeyDown}
+          autoGrow={true}
+          rows={1}
+          className="chat-textarea"
+        />
+        {isLoading ? (
+          <IonButton
+            slot="end"
+            onClick={stopResponse}
+            color="danger"
+            size="default"
+          >
+            {t('chat.stop')}
+          </IonButton>
+        ) : (
+          <IonButton
+            slot="end"
+            onClick={sendMessage}
+            disabled={!inputMessage.trim()}
+            size="default"
+          >
+            {t('chat.send')}
+          </IonButton>
+        )}
+      </IonItem>
     </IonToolbar>
   );
 };

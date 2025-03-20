@@ -1,5 +1,5 @@
 import {
-  IonContent, IonHeader, IonPage, IonTitle, IonToolbar,
+  IonContent, IonHeader, IonPage, IonToolbar,
   IonList, IonItem, IonButton, IonFooter, IonSplitPane,
   IonMenu, IonMenuToggle, IonIcon, IonText, IonSelect, IonSelectOption
 } from '@ionic/react';
@@ -7,7 +7,7 @@ import {
   useState, useEffect, useRef, useCallback, useLayoutEffect
 } from 'react';
 import { Preferences } from '@capacitor/preferences';
-import { chatbubbleEllipses, key } from 'ionicons/icons';
+import { chatbubbleEllipses, key, addCircleOutline } from 'ionicons/icons';
 import { useTranslation } from 'react-i18next';
 import './Tab1.css';
 import '../i18n';
@@ -159,7 +159,7 @@ const Tab1: React.FC = () => {
     return JSON.stringify(a) === JSON.stringify(b);
   };
   
-  // Save current chat as a session
+  // Save current chat as a session and optionally start a new chat
   const saveCurrentChat = async () => {
     if (currentMessages.length === 0) return;
     
@@ -196,6 +196,9 @@ const Tab1: React.FC = () => {
     }
     
     await saveChatSessions(updatedSessions);
+    
+    // Automatically start a new chat after saving
+    setCurrentMessages([]);
   };
   
   // Send a message to the AI
@@ -413,7 +416,7 @@ const Tab1: React.FC = () => {
                 onClick={saveCurrentChat}
                 disabled={currentMessages.length === 0}
               >
-                {t('chat.saveChat')}
+                <IonIcon slot="icon-only" icon={addCircleOutline} />
               </IonButton>
             </IonToolbar>
             </IonHeader>

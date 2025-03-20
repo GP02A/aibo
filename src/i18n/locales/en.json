@@ -11,6 +11,7 @@
     "send": "Send",
     "stop": "Stop",
     "delete": "Delete",
+    "saveAndNewChat": "Save and start new chat",
     "tokenUsage": "Token Usage:",
     "promptTokens": "Prompt",
     "completionTokens": "Completion",

@@ -272,7 +272,6 @@ export class ChatService {
       // Handle errors
       if (signal?.aborted) {
         // If the request was aborted by the user, we need to ensure the cancellation message is shown
-        console.log('Request was cancelled by user');
         
         // For streaming responses, we might need to add the cancellation message here as well
         // in case the abort happened after the for-await loop but before completion

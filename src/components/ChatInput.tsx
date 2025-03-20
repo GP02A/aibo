@@ -125,15 +125,16 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <IonToolbar ref={toolbarRef} className="chat-input-toolbar">
-      <div className="ion-padding-horizontal ion-margin-vertical">
-        <IonItem lines="none">
+      {/* <div className="ion-padding-horizontal ion-margin-vertical"> */}
+        <IonItem>
           <IonInput
             ref={inputRef}
-            fill="outline"
+            // fill="outline"
             value={inputMessage}
             placeholder={t('chat.inputPlaceholder')}
             onIonInput={e => setInputMessage(e.detail.value || '')}
             onKeyDown={handleKeyDown}
+            clearInput={true}
           />
           {isLoading ? (
             <IonButton
@@ -155,7 +156,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             </IonButton>
           )}
         </IonItem>
-      </div>
+      {/* </div> */}
     </IonToolbar>
   );
 };

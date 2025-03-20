@@ -17,13 +17,12 @@ const ConfigSelector: React.FC<ConfigSelectorProps> = ({
 
   return (
     <IonItem>
-      <IonLabel>{t('settings.activeConfig')}</IonLabel>
       {configs.length > 0 ? (
         <IonSelect
+          label={t('settings.activeConfig')}
           value={activeConfig?.id}
           onIonChange={(e) => onConfigChange(e.detail.value)}
           interface="popover"
-          slot="end"
           key={activeConfig ? `${activeConfig.id}-${activeConfig.name}` : 'no-config'}
         >
           {configs.map((config) => (

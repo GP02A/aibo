@@ -19,7 +19,7 @@ const DeleteConfigModal: React.FC<DeleteConfigModalProps> = ({
       isOpen={isOpen}
       onDidDismiss={onDismiss}
       header={t('settings.deleteConfig')}
-      message={`${t('settings.confirmClearMessage')}`}
+      message={`${t('settings.configDeleteMessage')}`}
       buttons={[
         {
           text: t('common.cancel'),

@@ -48,6 +48,7 @@
     "addConfig": "Add Configuration",
     "editConfig": "Edit Configuration",
     "deleteConfig": "Delete Configuration",
+    "configDeleteMessage": "This will permanently delete this config. This action cannot be undone.",
     "configName": "Configuration Name",
     "baseUrl": "Base URL",
     "modelName": "Model Name",

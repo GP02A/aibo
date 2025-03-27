@@ -16,7 +16,7 @@
     "promptTokens": "Prompt",
     "completionTokens": "Completion",
     "totalTokens": "Total",
-    
+
     "errors": {
       "request_cancelled": "Chat response stopped by user",
       "no_active_config": "Please set an active configuration before sending messages",
@@ -84,7 +84,7 @@
     "clearAllHistory": "Clear all chat history",
     "confirmClear": "Clear All Chat History?",
     "confirmClearMessage": "This will permanently delete all your chat history. This action cannot be undone.",
-    
+
     "advancedConfig": "Advanced Configuration",
     "advancedConfigWarning": "These settings are for advanced users only. Changing these values may significantly affect the AI's response quality and behavior. Apply with caution.",
     "temperature": "Temperature",
@@ -99,6 +99,17 @@
     "maxTokensDescription": "Maximum number of tokens to generate (default: 2048)",
     "streamResponse": "Stream Response",
     "streamResponseDescription": "Whether to stream back partial progress (recommended)"
+  },
+  "about": {
+    "title": "About",
+    "appname": "AiBo",
+    "cv": "Version",
+    "lv": "Latest Version",
+    "devcontact": "Developer Contact",
+    "github": "Github",
+    "githubacc": "GP02A",
+    "bilibili": "哔哩哔哩",
+    "bilibiliacc": "穆·撒加"
   },
   "common": {
     "cancel": "Cancel",

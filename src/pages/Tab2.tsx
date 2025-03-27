@@ -15,10 +15,13 @@ import {
   IonItemDivider,
   IonItemGroup,
   IonListHeader,
+  IonSegment,
+  IonSegmentButton,
 } from "@ionic/react";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { Preferences } from "@capacitor/preferences";
+import { getCurrentVersion, fetchLatestRelease, formatVersion, isNewVersionAvailable } from "../utils/version";
 import { languageOutline, trashOutline, moonOutline } from "ionicons/icons";
 import ApiSettings from "../components/ApiSettings";
 import "./Tab2.css";
@@ -30,12 +33,16 @@ export const THEME_LIGHT = "light";
 export const THEME_DARK = "dark";
 
 const Tab2: React.FC = () => {
+  const [seg, setSeg] = useState("settings");
   const { t, i18n } = useTranslation();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [themeMode, setThemeMode] = useState(THEME_AUTO);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
 
   useEffect(() => {
     loadThemePreference();
+    checkForUpdates();
   }, []);
 
   const loadThemePreference = async () => {
@@ -103,97 +110,174 @@ const Tab2: React.FC = () => {
     }
   };
 
+  const checkForUpdates = async () => {
+    try {
+      const currentVersion = getCurrentVersion();
+      const latestRelease = await fetchLatestRelease();
+      
+      if (latestRelease && latestRelease.tag_name) {
+        const latestVersionStr = formatVersion(latestRelease.tag_name);
+        setLatestVersion(latestVersionStr);
+        setIsUpdateAvailable(isNewVersionAvailable(currentVersion, latestVersionStr));
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+    }
+  };
+
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>{t("settings.title")}</IonTitle>
+          <IonSegment
+            value={seg}
+            // color="secondary"
+            onIonChange={(e) => {
+              // console.log("Segment selected", e.detail.value);
+              setSeg(e.detail.value as string);
+            }}
+          >
+            <IonSegmentButton value="settings">
+              <IonLabel>{t("settings.title")}</IonLabel>
+            </IonSegmentButton>
+            <IonSegmentButton value="about">
+              <IonLabel>{t("about.title")}</IonLabel>
+            </IonSegmentButton>
+          </IonSegment>
+          {/* <IonTitle>{t("settings.title")}</IonTitle> */}
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <IonList>
-          {/* API Settings Component */}
-          <ApiSettings />
+        {seg === "settings" && (
+          <IonList>
+            {/* API Settings Component */}
+            <ApiSettings />
 
-          <IonItemDivider className="ion-margin-top" />
+            <IonItemDivider className="ion-margin-top" />
 
-          <IonItemGroup>
-            <IonListHeader>
-              <IonLabel>
-                <IonIcon icon={moonOutline} className="ion-margin-end" />
-                {t("settings.appearance")}
-              </IonLabel>
-            </IonListHeader>
-            <IonItem>
-              <IonSelect
-                label={t("settings.themeMode")}
-                value={themeMode}
-                onIonChange={(e) => changeTheme(e.detail.value)}
-                interface="popover"
+            <IonItemGroup>
+              <IonListHeader>
+                <IonLabel>
+                  <IonIcon icon={moonOutline} className="ion-margin-end" />
+                  {t("settings.appearance")}
+                </IonLabel>
+              </IonListHeader>
+              <IonItem>
+                <IonSelect
+                  label={t("settings.themeMode")}
+                  value={themeMode}
+                  onIonChange={(e) => changeTheme(e.detail.value)}
+                  interface="popover"
+                >
+                  <IonSelectOption value={THEME_AUTO}>
+                    {t("settings.themes.auto")}
+                  </IonSelectOption>
+                  <IonSelectOption value={THEME_LIGHT}>
+                    {t("settings.themes.light")}
+                  </IonSelectOption>
+                  <IonSelectOption value={THEME_DARK}>
+                    {t("settings.themes.dark")}
+                  </IonSelectOption>
+                </IonSelect>
+              </IonItem>
+            </IonItemGroup>
+
+            <IonItemDivider className="ion-margin-top" />
+
+            <IonItemGroup>
+              <IonListHeader>
+                <IonLabel>
+                  <IonIcon icon={languageOutline} className="ion-margin-end" />
+                  {t("settings.language")}
+                </IonLabel>
+              </IonListHeader>
+              <IonItem>
+                <IonSelect
+                  label={t("settings.preferredLanguage")}
+                  value={i18n.language}
+                  onIonChange={(e) => changeLanguage(e.detail.value)}
+                  interface="popover"
+                >
+                  <IonSelectOption value="en">
+                    {t("settings.languages.english")}
+                  </IonSelectOption>
+                  <IonSelectOption value="zh">
+                    {t("settings.languages.chinese")}
+                  </IonSelectOption>
+                </IonSelect>
+              </IonItem>
+            </IonItemGroup>
+
+            <IonItemDivider className="ion-margin-top" />
+
+            <IonItemGroup>
+              <IonListHeader>
+                <IonLabel>
+                  <IonIcon icon={trashOutline} className="ion-margin-end" />
+                  {t("settings.dataManagement")}
+                </IonLabel>
+              </IonListHeader>
+              <IonItem>
+                <IonLabel color="danger">
+                  {t("settings.clearAllHistory")}
+                </IonLabel>
+                <IonButton
+                  slot="end"
+                  fill="outline"
+                  color="danger"
+                  onClick={() => setShowClearConfirm(true)}
+                >
+                  {t("settings.clear")}
+                </IonButton>
+              </IonItem>
+            </IonItemGroup>
+          </IonList>
+        )}
+
+        {seg === "about" && (
+          <IonList>
+            <IonItemGroup>
+              <IonListHeader>
+                <IonLabel>{t("about.appname")}</IonLabel>
+              </IonListHeader>
+              <IonItem>
+                <IonLabel>{t("about.cv")}</IonLabel>
+                <IonLabel class="ion-text-end">
+                  v{getCurrentVersion()}
+                </IonLabel>
+              </IonItem>
+              {latestVersion && isUpdateAvailable && (
+                <IonItem href="https://github.com/GP02A/aibo/releases/latest" target="_blank">
+                  <IonLabel>{t("about.lv")}</IonLabel>
+                  <IonLabel class="ion-text-end" color="primary">
+                    v{latestVersion}
+                  </IonLabel>
+                </IonItem>
+              )}
+            </IonItemGroup>
+            <IonItemDivider className="ion-margin-top" />
+            <IonItemGroup>
+              <IonListHeader>
+                <IonLabel>{t("about.devcontact")}</IonLabel>
+              </IonListHeader>
+              <IonItem href="https://github.com/GP02A/aibo" target="_blank">
+                <IonLabel>{t("about.githubacc")}</IonLabel>
+                <IonLabel class="ion-text-end">
+                  {t("about.github")}
+                </IonLabel>
+              </IonItem>
+              <IonItem
+                href="https://space.bilibili.com/32205251"
+                target="_blank"
               >
-                <IonSelectOption value={THEME_AUTO}>
-                  {t("settings.themes.auto")}
-                </IonSelectOption>
-                <IonSelectOption value={THEME_LIGHT}>
-                  {t("settings.themes.light")}
-                </IonSelectOption>
-                <IonSelectOption value={THEME_DARK}>
-                  {t("settings.themes.dark")}
-                </IonSelectOption>
-              </IonSelect>
-            </IonItem>
-          </IonItemGroup>
-
-          <IonItemDivider className="ion-margin-top" />
-
-          <IonItemGroup>
-            <IonListHeader>
-              <IonLabel>
-                <IonIcon icon={languageOutline} className="ion-margin-end" />
-                {t("settings.language")}
-              </IonLabel>
-            </IonListHeader>
-            <IonItem>
-              <IonSelect
-                label={t("settings.preferredLanguage")}
-                value={i18n.language}
-                onIonChange={(e) => changeLanguage(e.detail.value)}
-                interface="popover"
-              >
-                <IonSelectOption value="en">
-                  {t("settings.languages.english")}
-                </IonSelectOption>
-                <IonSelectOption value="zh">
-                  {t("settings.languages.chinese")}
-                </IonSelectOption>
-              </IonSelect>
-            </IonItem>
-          </IonItemGroup>
-
-          <IonItemDivider className="ion-margin-top" />
-
-          <IonItemGroup>
-            <IonListHeader>
-              <IonLabel>
-                <IonIcon icon={trashOutline} className="ion-margin-end" />
-                {t("settings.dataManagement")}
-              </IonLabel>
-            </IonListHeader>
-            <IonItem>
-              <IonLabel color="danger">
-                {t("settings.clearAllHistory")}
-              </IonLabel>
-              <IonButton
-                slot="end"
-                fill="outline"
-                color="danger"
-                onClick={() => setShowClearConfirm(true)}
-              >
-                {t("settings.clear")}
-              </IonButton>
-            </IonItem>
-          </IonItemGroup>
-        </IonList>
+                <IonLabel>{t("about.bilibiliacc")}</IonLabel>
+                <IonLabel class="ion-text-end">
+                  {t("about.bilibili")}
+                </IonLabel>
+              </IonItem>
+            </IonItemGroup>
+          </IonList>
+        )}
 
         <IonAlert
           isOpen={showClearConfirm}

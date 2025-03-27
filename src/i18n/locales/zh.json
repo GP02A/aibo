@@ -99,6 +99,17 @@
     "streamResponse": "流式响应",
     "streamResponseDescription": "是否流式返回部分进度（推荐）"
   },
+  "about": {
+    "title": "关于",
+    "appname": "AiBo",
+    "cv": "版本",
+    "lv": "最新版本",
+    "devcontact": "开发者",
+    "github": "Github",
+    "githubacc": "GP02A",
+    "bilibili": "哔哩哔哩",
+    "bilibiliacc": "穆·撒加"
+  },
   "common": {
     "cancel": "取消",
     "confirm": "确认",

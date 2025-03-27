@@ -422,7 +422,7 @@ const Tab1: React.FC = () => {
             </IonHeader>
           
           <IonContent ref={contentRef}>
-            <IonList lines="none" className="ion-padding">
+            <IonList lines="none" className="ion-padding-md">
               {currentMessages.map((message, index) => (
                 <MessageBubble 
                   key={index}

@@ -34,7 +34,7 @@ const MessageBubble: React.FC<MessageProps> = ({ role, content, tokenUsage, isSt
             
             {/* Message bubble */}
             <div 
-              className={`ion-padding message-bubble ${role === 'user' ? 'user-message' : 'assistant-message'}`}
+              className={`ion-padding message-bubble ${role === 'user' ? 'user-message' : 'assistant-message'} message-bubble-responsive`}
               style={{
                 maxWidth: '80%',
                 borderRadius: role === 'user' ? '0' : '12px',

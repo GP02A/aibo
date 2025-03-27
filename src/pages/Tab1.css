@@ -48,3 +48,11 @@
   --padding-end: 4px;
   font-size: 0.9rem;
 }
+
+
+/* Responsive message bubble width */
+@media (max-width: 576px) {
+  .message-bubble-responsive.assistant-message {
+    max-width: 90% !important;
+  }
+}

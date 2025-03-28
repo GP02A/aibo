@@ -16,6 +16,7 @@
     "promptTokens": "Prompt",
     "completionTokens": "Completion",
     "totalTokens": "Total",
+    "copied": "Copied!",
 
     "errors": {
       "request_cancelled": "Chat response stopped by user",
